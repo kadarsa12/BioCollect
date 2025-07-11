@@ -28,6 +28,10 @@ dependencies:
   provider: ^6.0.5
   intl: ^0.18.1
 
+    # Mapa
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
   # Ícones
   cupertino_icons: ^1.0.2
 

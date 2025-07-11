@@ -133,10 +133,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                 child: ElevatedButton(
                   onPressed: _criarProjeto,
                   child: Text('Criar Projeto'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
                 ),
               ),
             ],

@@ -21,39 +21,107 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nomeController;
   late TextEditingController _observacoesController;
-  late TextEditingController _latitudeController;
-  late TextEditingController _longitudeController;
+
+  // Controllers para coordenadas tradicionais
+  final _latGrausController = TextEditingController();
+  final _latMinutosController = TextEditingController();
+  final _latSegundosController = TextEditingController();
+  final _lngGrausController = TextEditingController();
+  final _lngMinutosController = TextEditingController();
+  final _lngSegundosController = TextEditingController();
+
+  String _latHemisferio = 'S';
+  String _lngHemisferio = 'W';
 
   bool _isLoadingLocation = false;
   bool _useManualCoordinates = false;
+  bool _useTraditionalFormat = true;
+
+  // Valores decimais para salvar no banco
+  double _currentLatitude = 0.0;
+  double _currentLongitude = 0.0;
 
   @override
   void initState() {
     super.initState();
 
-    // Inicializar controllers com dados atuais
     _nomeController = TextEditingController(text: widget.ponto.nome);
     _observacoesController = TextEditingController(text: widget.ponto.observacoes ?? '');
 
-    // Coordenadas (se não são 0,0)
-    if (widget.ponto.latitude != 0.0 && widget.ponto.longitude != 0.0) {
-      _latitudeController = TextEditingController(text: widget.ponto.latitude.toStringAsFixed(6));
-      _longitudeController = TextEditingController(text: widget.ponto.longitude.toStringAsFixed(6));
-    } else {
-      _latitudeController = TextEditingController();
-      _longitudeController = TextEditingController();
+    _currentLatitude = widget.ponto.latitude;
+    _currentLongitude = widget.ponto.longitude;
+
+    if (_currentLatitude != 0.0 && _currentLongitude != 0.0) {
+      _loadCoordinatesFromDecimal(_currentLatitude, _currentLongitude);
     }
+  }
+
+  void _loadCoordinatesFromDecimal(double lat, double lng) {
+    // Latitude
+    bool latNegative = lat < 0;
+    double absLat = lat.abs();
+    int latGraus = absLat.floor();
+    double latMinutosDecimal = (absLat - latGraus) * 60;
+    int latMinutos = latMinutosDecimal.floor();
+    double latSegundos = (latMinutosDecimal - latMinutos) * 60;
+
+    _latGrausController.text = latGraus.toString();
+    _latMinutosController.text = latMinutos.toString();
+    _latSegundosController.text = latSegundos.toStringAsFixed(1);
+    _latHemisferio = latNegative ? 'S' : 'N';
+
+    // Longitude
+    bool lngNegative = lng < 0;
+    double absLng = lng.abs();
+    int lngGraus = absLng.floor();
+    double lngMinutosDecimal = (absLng - lngGraus) * 60;
+    int lngMinutos = lngMinutosDecimal.floor();
+    double lngSegundos = (lngMinutosDecimal - lngMinutos) * 60;
+
+    _lngGrausController.text = lngGraus.toString();
+    _lngMinutosController.text = lngMinutos.toString();
+    _lngSegundosController.text = lngSegundos.toStringAsFixed(1);
+    _lngHemisferio = lngNegative ? 'W' : 'E';
+  }
+
+  double? _convertToDecimal(String graus, String minutos, String segundos, String hemisferio) {
+    try {
+      int g = int.parse(graus.isEmpty ? '0' : graus);
+      int m = int.parse(minutos.isEmpty ? '0' : minutos);
+      double s = double.parse(segundos.isEmpty ? '0' : segundos);
+
+      double decimal = g + (m / 60.0) + (s / 3600.0);
+
+      if (hemisferio == 'S' || hemisferio == 'W') {
+        decimal = -decimal;
+      }
+
+      return decimal;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String _formatTraditionalCoordinate(String graus, String minutos, String segundos, String hemisferio) {
+    if (graus.isEmpty) return 'Não informado';
+    String min = minutos.isEmpty ? '00' : minutos;
+    String sec = segundos.isEmpty ? '00.0' : segundos;
+    return '${graus}°${min}\'${sec}\"$hemisferio';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF8F6F4),
       appBar: AppBar(
         title: Text('Editar Ponto'),
+        backgroundColor: Color(0xFF8D6E63),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: Icon(Icons.delete, color: Colors.red),
+            icon: Icon(Icons.delete, color: Colors.white),
             onPressed: _confirmarDelete,
+            tooltip: 'Excluir ponto',
           ),
         ],
       ),
@@ -63,168 +131,235 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
-              TextFormField(
-                controller: _nomeController,
-                decoration: InputDecoration(
-                  labelText: 'Nome do Ponto',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.location_on),
+              // Campo nome
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF8D6E63).withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Digite o nome do ponto';
-                  }
-                  return null;
-                },
+                child: TextFormField(
+                  controller: _nomeController,
+                  decoration: InputDecoration(
+                    labelText: 'Nome do Ponto',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Color(0xFF8D6E63), width: 2),
+                    ),
+                    prefixIcon: Icon(Icons.location_on, color: Color(0xFF8D6E63)),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Digite o nome do ponto';
+                    }
+                    return null;
+                  },
+                ),
               ),
               SizedBox(height: 16),
 
-              // Card de localização
-              Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.gps_fixed, color: Colors.green),
-                          SizedBox(width: 8),
-                          Text(
-                            'Coordenadas',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-
-                      // Botões GPS e Manual
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isLoadingLocation ? null : _getCurrentLocation,
-                              icon: _isLoadingLocation
-                                  ? SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                                  : Icon(Icons.gps_fixed),
-                              label: Text(_isLoadingLocation ? 'Obtendo...' : 'Atualizar GPS'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _useManualCoordinates = !_useManualCoordinates;
-                                });
-                              },
-                              icon: Icon(Icons.edit),
-                              label: Text(_useManualCoordinates ? 'Cancelar' : 'Editar Manual'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-
-                      // Campos de coordenadas
-                      if (_useManualCoordinates) ...[
-                        Text(
-                          'Editar coordenadas:',
-                          style: TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        SizedBox(height: 8),
-                      ],
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _latitudeController,
-                              decoration: InputDecoration(
-                                labelText: 'Latitude',
-                                border: OutlineInputBorder(),
-                                hintText: '-15.123456',
-                              ),
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              readOnly: !_useManualCoordinates,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _longitudeController,
-                              decoration: InputDecoration(
-                                labelText: 'Longitude',
-                                border: OutlineInputBorder(),
-                                hintText: '-60.123456',
-                              ),
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              readOnly: !_useManualCoordinates,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      if (!_useManualCoordinates &&
-                          _latitudeController.text.isNotEmpty &&
-                          _longitudeController.text.isNotEmpty) ...[
-                        SizedBox(height: 8),
+              // Card de coordenadas
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF8D6E63).withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
                         Container(
                           padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
+                          child: Icon(Icons.gps_fixed, color: Colors.green, size: 20),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
                           child: Text(
-                            '📍 ${_latitudeController.text}, ${_longitudeController.text}',
-                            style: TextStyle(color: Colors.green.shade700),
+                            'Coordenadas GPS',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF5D4037),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Formato: °\'"',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
                           ),
                         ),
                       ],
+                    ),
+                    SizedBox(height: 16),
+
+                    // Botões de ação
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isLoadingLocation ? null : _getCurrentLocation,
+                            icon: _isLoadingLocation
+                                ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                                : Icon(Icons.gps_fixed),
+                            label: Text(_isLoadingLocation ? 'Obtendo...' : 'Atualizar GPS'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _useManualCoordinates = !_useManualCoordinates;
+                              });
+                            },
+                            icon: Icon(Icons.edit),
+                            label: Text(_useManualCoordinates ? 'Cancelar' : 'Editar'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Color(0xFF8D6E63),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+
+                    // Campos de coordenadas tradicionais
+                    _buildTraditionalCoordinateInputs(),
+
+                    // Preview das coordenadas
+                    if (!_useManualCoordinates && _hasCoordinates()) ...[
+                      SizedBox(height: 12),
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.location_on, color: Colors.green, size: 16),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Coordenadas atuais:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Lat: ${_formatTraditionalCoordinate(_latGrausController.text, _latMinutosController.text, _latSegundosController.text, _latHemisferio)}',
+                              style: TextStyle(color: Colors.green.shade700, fontSize: 13),
+                            ),
+                            Text(
+                              'Lng: ${_formatTraditionalCoordinate(_lngGrausController.text, _lngMinutosController.text, _lngSegundosController.text, _lngHemisferio)}',
+                              style: TextStyle(color: Colors.green.shade700, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
               SizedBox(height: 16),
 
-              TextFormField(
-                controller: _observacoesController,
-                decoration: InputDecoration(
-                  labelText: 'Observações',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.note),
+              // Campo observações
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF8D6E63).withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
-                maxLines: 3,
+                child: TextFormField(
+                  controller: _observacoesController,
+                  decoration: InputDecoration(
+                    labelText: 'Observações (opcional)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Color(0xFF8D6E63), width: 2),
+                    ),
+                    prefixIcon: Icon(Icons.note, color: Color(0xFF8D6E63)),
+                  ),
+                  maxLines: 3,
+                ),
               ),
               SizedBox(height: 24),
 
+              // Botões de ação
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       child: Text('Cancelar'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey[600],
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ),
                   SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _salvarAlteracoes,
-                      child: Text('Salvar'),
+                      child: Text('Salvar Alterações'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 16),
                       ),
                     ),
                   ),
@@ -235,6 +370,204 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildTraditionalCoordinateInputs() {
+    return Column(
+      children: [
+        // Latitude
+        Row(
+          children: [
+            Icon(Icons.north, color: Color(0xFF8D6E63), size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Latitude',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF5D4037),
+                ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Color(0xFF8D6E63).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButton<String>(
+                value: _latHemisferio,
+                items: ['N', 'S'].map((h) => DropdownMenuItem(
+                  value: h,
+                  child: Text(h, style: TextStyle(fontWeight: FontWeight.bold)),
+                )).toList(),
+                onChanged: _useManualCoordinates ? (value) {
+                  setState(() {
+                    _latHemisferio = value!;
+                  });
+                } : null,
+                underline: SizedBox(),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextFormField(
+                controller: _latGrausController,
+                decoration: InputDecoration(
+                  labelText: 'Graus',
+                  border: OutlineInputBorder(),
+                  suffixText: '°',
+                ),
+                keyboardType: TextInputType.number,
+                readOnly: !_useManualCoordinates,
+                validator: (value) => _validateCoordinate(value, 0, 90, 'graus de latitude'),
+              ),
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                controller: _latMinutosController,
+                decoration: InputDecoration(
+                  labelText: 'Min',
+                  border: OutlineInputBorder(),
+                  suffixText: '\'',
+                ),
+                keyboardType: TextInputType.number,
+                readOnly: !_useManualCoordinates,
+                validator: (value) => _validateCoordinate(value, 0, 59, 'minutos'),
+              ),
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                controller: _latSegundosController,
+                decoration: InputDecoration(
+                  labelText: 'Seg',
+                  border: OutlineInputBorder(),
+                  suffixText: '"',
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                readOnly: !_useManualCoordinates,
+                validator: (value) => _validateCoordinate(value, 0, 59.99, 'segundos'),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16),
+
+        // Longitude
+        Row(
+          children: [
+            Icon(Icons.east, color: Color(0xFF8D6E63), size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Longitude',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF5D4037),
+                ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Color(0xFF8D6E63).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButton<String>(
+                value: _lngHemisferio,
+                items: ['E', 'W'].map((h) => DropdownMenuItem(
+                  value: h,
+                  child: Text(h, style: TextStyle(fontWeight: FontWeight.bold)),
+                )).toList(),
+                onChanged: _useManualCoordinates ? (value) {
+                  setState(() {
+                    _lngHemisferio = value!;
+                  });
+                } : null,
+                underline: SizedBox(),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextFormField(
+                controller: _lngGrausController,
+                decoration: InputDecoration(
+                  labelText: 'Graus',
+                  border: OutlineInputBorder(),
+                  suffixText: '°',
+                ),
+                keyboardType: TextInputType.number,
+                readOnly: !_useManualCoordinates,
+                validator: (value) => _validateCoordinate(value, 0, 180, 'graus de longitude'),
+              ),
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                controller: _lngMinutosController,
+                decoration: InputDecoration(
+                  labelText: 'Min',
+                  border: OutlineInputBorder(),
+                  suffixText: '\'',
+                ),
+                keyboardType: TextInputType.number,
+                readOnly: !_useManualCoordinates,
+                validator: (value) => _validateCoordinate(value, 0, 59, 'minutos'),
+              ),
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                controller: _lngSegundosController,
+                decoration: InputDecoration(
+                  labelText: 'Seg',
+                  border: OutlineInputBorder(),
+                  suffixText: '"',
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                readOnly: !_useManualCoordinates,
+                validator: (value) => _validateCoordinate(value, 0, 59.99, 'segundos'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String? _validateCoordinate(String? value, double min, double max, String fieldName) {
+    if (_useManualCoordinates && (value == null || value.isEmpty)) {
+      return 'Digite $fieldName';
+    }
+
+    if (value != null && value.isNotEmpty) {
+      final num = double.tryParse(value);
+      if (num == null) {
+        return 'Digite um número válido';
+      }
+
+      if (num < min || num > max) {
+        return '$fieldName deve estar entre $min e $max';
+      }
+    }
+
+    return null;
+  }
+
+  bool _hasCoordinates() {
+    return _latGrausController.text.isNotEmpty && _lngGrausController.text.isNotEmpty;
   }
 
   Future<void> _getCurrentLocation() async {
@@ -249,7 +582,10 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
         bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
         if (!serviceEnabled) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('GPS desativado. Ative nas configurações.')),
+            SnackBar(
+              content: Text('GPS desativado. Ative nas configurações.'),
+              backgroundColor: Colors.orange,
+            ),
           );
           setState(() {
             _isLoadingLocation = false;
@@ -262,18 +598,26 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
         );
 
         setState(() {
-          _latitudeController.text = position.latitude.toStringAsFixed(6);
-          _longitudeController.text = position.longitude.toStringAsFixed(6);
+          _currentLatitude = position.latitude;
+          _currentLongitude = position.longitude;
           _isLoadingLocation = false;
           _useManualCoordinates = false;
         });
 
+        _loadCoordinatesFromDecimal(position.latitude, position.longitude);
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Coordenadas atualizadas!')),
+          SnackBar(
+            content: Text('Coordenadas atualizadas com GPS!'),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Permissão de localização negada.')),
+          SnackBar(
+            content: Text('Permissão de localização negada.'),
+            backgroundColor: Colors.red,
+          ),
         );
         setState(() {
           _isLoadingLocation = false;
@@ -284,7 +628,10 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
         _isLoadingLocation = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao obter localização: $e')),
+        SnackBar(
+          content: Text('Erro ao obter localização: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -295,9 +642,21 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
         double latitude = 0.0;
         double longitude = 0.0;
 
-        if (_latitudeController.text.isNotEmpty && _longitudeController.text.isNotEmpty) {
-          latitude = double.parse(_latitudeController.text);
-          longitude = double.parse(_longitudeController.text);
+        // Converter coordenadas tradicionais para decimal
+        if (_latGrausController.text.isNotEmpty && _lngGrausController.text.isNotEmpty) {
+          latitude = _convertToDecimal(
+            _latGrausController.text,
+            _latMinutosController.text,
+            _latSegundosController.text,
+            _latHemisferio,
+          ) ?? 0.0;
+
+          longitude = _convertToDecimal(
+            _lngGrausController.text,
+            _lngMinutosController.text,
+            _lngSegundosController.text,
+            _lngHemisferio,
+          ) ?? 0.0;
         }
 
         // Atualizar no banco
@@ -320,11 +679,17 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
 
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ponto atualizado com sucesso!')),
+          SnackBar(
+            content: Text('Ponto atualizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
+          SnackBar(
+            content: Text('Erro ao salvar: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -334,16 +699,29 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Excluir Ponto'),
-        content: Text('Tem certeza que deseja excluir este ponto?\n\nTodas as coletas associadas também serão removidas.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Excluir Ponto'),
+          ],
+        ),
+        content: Text(
+          'Tem certeza que deseja excluir este ponto?\n\nTodas as coletas associadas também serão removidas.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Cancelar'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: _deletePonto,
-            child: Text('Excluir', style: TextStyle(color: Colors.red)),
+            child: Text('Excluir'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -354,25 +732,27 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
     try {
       final db = await DatabaseHelper.instance.database;
 
-      // Deletar coletas do ponto primeiro
       await db.delete('coletas', where: 'ponto_coleta_id = ?', whereArgs: [widget.ponto.id]);
-
-      // Deletar o ponto
       await db.delete('pontos_coleta', where: 'id = ?', whereArgs: [widget.ponto.id]);
 
-      // Recarregar lista
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
       await projectProvider.loadPontosByProjeto(widget.projeto.id!);
 
       Navigator.pop(context); // Fechar dialog
-      Navigator.pop(context); // Voltar para lista de pontos
+      Navigator.pop(context); // Voltar para lista
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ponto excluído com sucesso!')),
+        SnackBar(
+          content: Text('Ponto excluído com sucesso!'),
+          backgroundColor: Colors.orange,
+        ),
       );
     } catch (e) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao excluir: $e')),
+        SnackBar(
+          content: Text('Erro ao excluir: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -381,8 +761,12 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
   void dispose() {
     _nomeController.dispose();
     _observacoesController.dispose();
-    _latitudeController.dispose();
-    _longitudeController.dispose();
+    _latGrausController.dispose();
+    _latMinutosController.dispose();
+    _latSegundosController.dispose();
+    _lngGrausController.dispose();
+    _lngMinutosController.dispose();
+    _lngSegundosController.dispose();
     super.dispose();
   }
 }

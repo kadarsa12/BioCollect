@@ -6,6 +6,7 @@ import '../models/user.dart';
 import '../models/projeto.dart';
 import '../models/ponto_coleta.dart';
 import '../models/coleta.dart';
+import '../models/metodologia.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -85,6 +86,19 @@ class DatabaseHelper {
         FOREIGN KEY (ponto_coleta_id) REFERENCES pontos_coleta (id)
       )
     ''');
+
+    // Tabela de metodologias personalizadas
+    await db.execute('''
+  CREATE TABLE metodologias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    descricao TEXT,
+    grupo_biologico TEXT NOT NULL,
+    usuario_id INTEGER NOT NULL,
+    data_criacao TEXT NOT NULL,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+  )
+''');
   }
 
   // Métodos para usuários
@@ -136,6 +150,45 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) {
       return PontoColeta.fromMap(maps[i]);
     });
+  }
+
+  // Métodos para metodologias
+  Future<int> insertMetodologia(Metodologia metodologia) async {
+    final db = await database;
+    return await db.insert('metodologias', metodologia.toMap());
+  }
+
+  Future<List<Metodologia>> getMetodologiasByGrupo(String grupoBiologico, int usuarioId) async {
+    final db = await database;
+    final maps = await db.query(
+      'metodologias',
+      where: 'grupo_biologico = ? AND usuario_id = ?',
+      whereArgs: [grupoBiologico, usuarioId],
+      orderBy: 'nome ASC',
+    );
+
+    return List.generate(maps.length, (i) {
+      return Metodologia.fromMap(maps[i]);
+    });
+  }
+
+  Future<List<Metodologia>> getAllMetodologias(int usuarioId) async {
+    final db = await database;
+    final maps = await db.query(
+      'metodologias',
+      where: 'usuario_id = ?',
+      whereArgs: [usuarioId],
+      orderBy: 'grupo_biologico ASC, nome ASC',
+    );
+
+    return List.generate(maps.length, (i) {
+      return Metodologia.fromMap(maps[i]);
+    });
+  }
+
+  Future<void> deleteMetodologia(int id) async {
+    final db = await database;
+    await db.delete('metodologias', where: 'id = ?', whereArgs: [id]);
   }
 
   // Métodos para coletas

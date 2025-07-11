@@ -130,8 +130,24 @@ class _CreatePontoScreenState extends State<CreatePontoScreen> {
                                   labelText: 'Latitude',
                                   border: OutlineInputBorder(),
                                   hintText: '-15.123456',
+                                  helperText: 'Negativo no Brasil',
+                                  prefixText: '-', // Adiciona o sinal automaticamente
                                 ),
                                 keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                validator: (value) {
+                                  if (value != null && value.isNotEmpty) {
+                                    // Adicionar "-" se não tiver
+                                    String fullValue = value.startsWith('-') ? value : '-$value';
+                                    final lat = double.tryParse(fullValue);
+                                    if (lat == null) {
+                                      return 'Digite um número válido';
+                                    }
+                                    if (lat < -90 || lat > 90) {
+                                      return 'Latitude deve estar entre -90 e 90';
+                                    }
+                                  }
+                                  return null;
+                                },
                               ),
                             ),
                             SizedBox(width: 8),
@@ -142,9 +158,52 @@ class _CreatePontoScreenState extends State<CreatePontoScreen> {
                                   labelText: 'Longitude',
                                   border: OutlineInputBorder(),
                                   hintText: '-60.123456',
+                                  helperText: 'Negativo no Brasil',
+                                  prefixText: '-', // Adiciona o sinal automaticamente
                                 ),
                                 keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                validator: (value) {
+                                  if (value != null && value.isNotEmpty) {
+                                    // Adicionar "-" se não tiver
+                                    String fullValue = value.startsWith('-') ? value : '-$value';
+                                    final lng = double.tryParse(fullValue);
+                                    if (lng == null) {
+                                      return 'Digite um número válido';
+                                    }
+                                    if (lng < -180 || lng > 180) {
+                                      return 'Longitude deve estar entre -180 e 180';
+                                    }
+                                  }
+                                  return null;
+                                },
                               ),
+                            ),
+                          ],
+                        ),
+                        // Botões de exemplo
+                        SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _latitudeController.text = '-15.794229';
+                                  _longitudeController.text = '-47.882166';
+                                });
+                              },
+                              icon: Icon(Icons.location_city, size: 16),
+                              label: Text('Brasília', style: TextStyle(fontSize: 12)),
+                            ),
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _latitudeController.text = '-15.601411';
+                                  _longitudeController.text = '-56.097889';
+                                });
+                              },
+                              icon: Icon(Icons.nature, size: 16),
+                              label: Text('Cuiabá', style: TextStyle(fontSize: 12)),
                             ),
                           ],
                         ),
@@ -219,12 +278,8 @@ class _CreatePontoScreenState extends State<CreatePontoScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _criarPonto, // Sempre habilitado agora
+                  onPressed: _criarPonto,
                   child: Text('Criar Ponto de Coleta'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
                 ),
               ),
             ],
@@ -328,8 +383,16 @@ class _CreatePontoScreenState extends State<CreatePontoScreen> {
 
       if (_latitudeController.text.isNotEmpty && _longitudeController.text.isNotEmpty) {
         try {
-          latitude = double.parse(_latitudeController.text);
-          longitude = double.parse(_longitudeController.text);
+          // Garantir que têm sinal negativo
+          String latText = _latitudeController.text.startsWith('-')
+              ? _latitudeController.text
+              : '-${_latitudeController.text}';
+          String lngText = _longitudeController.text.startsWith('-')
+              ? _longitudeController.text
+              : '-${_longitudeController.text}';
+
+          latitude = double.parse(latText);
+          longitude = double.parse(lngText);
         } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Coordenadas inválidas. Digite números válidos.')),
