@@ -12,6 +12,9 @@ void main() async {
   // Inicializar banco de dados
   await DatabaseHelper.instance.database;
 
+  // Inicializar templates padrão
+  await DatabaseHelper.instance.createDefaultTemplates();
+
   runApp(MyApp());
 }
 MaterialColor _createBrownSwatch() {

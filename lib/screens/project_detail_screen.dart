@@ -6,6 +6,7 @@ import '../providers/project_provider.dart';
 import '../providers/user_provider.dart';
 import '../utils/excel_exporter.dart';
 import '../utils/database_helper.dart';
+import '../models/enums.dart'; // Para StatusProjeto
 import 'create_ponto_screen.dart';
 import 'ponto_detail_screen.dart';
 import 'project_map_screen.dart';
@@ -23,13 +24,16 @@ class ProjectDetailScreen extends StatefulWidget {
 class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     with SingleTickerProviderStateMixin {
   bool _isExporting = false;
-  bool _isDeleting = false; // Nova variável
+  bool _isDeleting = false;
+  bool _isUpdatingStatus = false; // NOVO
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Projeto _projeto; // NOVO - para atualizar o status localmente
 
   @override
   void initState() {
     super.initState();
+    _projeto = widget.projeto; // NOVO
     _animationController = AnimationController(
       duration: Duration(milliseconds: 600),
       vsync: this,
@@ -49,18 +53,20 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
 
   Future<void> _loadPontos() async {
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-    await projectProvider.loadPontosByProjeto(widget.projeto.id!);
+    await projectProvider.loadPontosByProjeto(_projeto.id!);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isAberto = _projeto.status == StatusProjeto.aberto;
+
     return Scaffold(
-      backgroundColor: Color(0xFFF8F6F4), // Fundo mais suave
+      backgroundColor: Color(0xFFF8F6F4),
       body: CustomScrollView(
         slivers: [
-          // AppBar moderna com gradiente
+          // AppBar moderna com gradiente baseado no status
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 140, // AUMENTADO para caber o status
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -68,10 +74,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF8D6E63),
-                      Color(0xFF5D4037),
-                    ],
+                    colors: isAberto
+                        ? [Colors.green, Colors.green.shade700]
+                        : [Colors.grey.shade600, Colors.grey.shade800],
                   ),
                 ),
                 child: Container(
@@ -92,7 +97,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.projeto.nome,
+                    _projeto.nome,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -100,11 +105,42 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                     ),
                   ),
                   Text(
-                    widget.projeto.grupoBiologico.displayName,
+                    _projeto.grupoBiologico.displayName,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  // NOVO - Badge de status
+                  SizedBox(height: 4),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          _projeto.status.value.toUpperCase(),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -112,18 +148,84 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
               titlePadding: EdgeInsets.only(left: 16, bottom: 16),
             ),
             actions: [
-              // Menu de ações expandido com exclusão
+              // NOVO - Botão de status rápido
+              if (!_isUpdatingStatus)
+                IconButton(
+                  onPressed: () => _toggleStatusProjeto(),
+                  icon: Icon(
+                    isAberto ? Icons.lock_open : Icons.lock,
+                    color: Colors.white,
+                  ),
+                  tooltip: isAberto ? 'Fechar Projeto' : 'Abrir Projeto',
+                )
+              else
+                Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+
+              // Menu de ações expandido
               PopupMenuButton<String>(
                 onSelected: (value) => _handleMenuAction(value),
                 icon: Icon(Icons.more_vert, color: Colors.white),
                 itemBuilder: (context) => [
+                  // NOVA SEÇÃO - Status
                   PopupMenuItem(
-                    value: 'metodologias',
+                    value: 'toggle_status',
                     child: Row(
                       children: [
-                        Icon(Icons.science, color: Color(0xFF8D6E63), size: 20),
+                        _isUpdatingStatus
+                            ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: isAberto ? Colors.red : Colors.green,
+                          ),
+                        )
+                            : Icon(
+                          isAberto ? Icons.lock : Icons.lock_open,
+                          color: isAberto ? Colors.red : Colors.green,
+                          size: 20,
+                        ),
                         SizedBox(width: 12),
-                        Text('Gerenciar Métodos'),
+                        Text(
+                          isAberto ? 'Fechar Projeto' : 'Abrir Projeto',
+                          style: TextStyle(
+                            color: isAberto ? Colors.red : Colors.green,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuDivider(),
+
+                  // Outras opções
+                  PopupMenuItem(
+                    value: 'metodologias',
+                    enabled: isAberto, // SÓ DISPONÍVEL SE ABERTO
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.science,
+                          color: isAberto ? Color(0xFF8D6E63) : Colors.grey,
+                          size: 20,
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Gerenciar Métodos',
+                          style: TextStyle(
+                            color: isAberto ? null : Colors.grey,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -166,7 +268,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                       ],
                     ),
                   ),
-                  // NOVA SEÇÃO - Divisor e exclusão
                   PopupMenuDivider(),
                   PopupMenuItem(
                     value: 'delete',
@@ -195,14 +296,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
             ],
           ),
 
-          // Resto do build continua igual...
           // Conteúdo principal
           SliverToBoxAdapter(
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Column(
                 children: [
-                  // Card de estatísticas melhorado
+                  // NOVO - Card de status se fechado
+                  if (!isAberto) _buildClosedProjectCard(),
+
+                  // Card de estatísticas
                   _buildStatsCard(),
 
                   // Header da lista de pontos
@@ -258,22 +361,173 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: isAberto
+          ? FloatingActionButton.extended(
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => CreatePontoScreen(projeto: widget.projeto),
+              builder: (_) => CreatePontoScreen(projeto: _projeto),
             ),
           ).then((_) => _loadPontos());
         },
         label: Text('Novo Ponto'),
         icon: Icon(Icons.add_location),
-        backgroundColor: Color(0xFF5D4037),
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
+      )
+          : null, // SEM FAB SE PROJETO FECHADO
+    );
+  }
+
+  // NOVO - Card para projeto fechado
+  Widget _buildClosedProjectCard() {
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.lock,
+              color: Colors.grey.shade600,
+              size: 20,
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Projeto Fechado',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                Text(
+                  'Não é possível adicionar novos pontos ou modificar dados',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                if (_projeto.dataFechamento != null) ...[
+                  SizedBox(height: 4),
+                  Text(
+                    'Fechado em ${_projeto.dataFechamento!.day}/${_projeto.dataFechamento!.month}/${_projeto.dataFechamento!.year}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => _toggleStatusProjeto(),
+            icon: Icon(Icons.lock_open, size: 16),
+            label: Text('Reabrir'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+        ],
       ),
     );
   }
-  // Continuação da Parte 1...
+
+  // NOVA FUNÇÃO - Toggle status do projeto
+  Future<void> _toggleStatusProjeto() async {
+    setState(() {
+      _isUpdatingStatus = true;
+    });
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+
+      final novoStatus = _projeto.status == StatusProjeto.aberto
+          ? StatusProjeto.fechado
+          : StatusProjeto.aberto;
+
+      final dataFechamento = novoStatus == StatusProjeto.fechado
+          ? DateTime.now()
+          : null;
+
+      await db.update(
+        'projetos',
+        {
+          'status': novoStatus.value,
+          'data_fechamento': dataFechamento?.toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [_projeto.id],
+      );
+
+      // Atualizar objeto local
+      setState(() {
+        _projeto = Projeto(
+          id: _projeto.id,
+          nome: _projeto.nome,
+          grupoBiologico: _projeto.grupoBiologico,
+          campanha: _projeto.campanha,
+          periodo: _projeto.periodo,
+          municipio: _projeto.municipio,
+          usuarioId: _projeto.usuarioId,
+          dataInicio: _projeto.dataInicio,
+          status: novoStatus,
+          dataFechamento: dataFechamento,
+        );
+      });
+
+      // Recarregar lista de projetos
+      final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+      await projectProvider.loadProjetos();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                novoStatus == StatusProjeto.fechado ? Icons.lock : Icons.lock_open,
+                color: Colors.white,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Projeto ${novoStatus == StatusProjeto.fechado ? "fechado" : "reaberto"}',
+              ),
+            ],
+          ),
+          backgroundColor: novoStatus == StatusProjeto.fechado ? Colors.orange : Colors.green,
+        ),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao alterar status: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isUpdatingStatus = false;
+      });
+    }
+  }
 
   Widget _buildStatsCard() {
     return Container(
@@ -293,13 +547,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       child: Consumer<ProjectProvider>(
         builder: (context, projectProvider, child) {
           final totalPontos = projectProvider.pontosColeta.length;
-          int pontosAbertos = 0;
-          int totalColetas = 0;
-
-          for (final ponto in projectProvider.pontosColeta) {
-            if (ponto.status.value == 'ABERTO') pontosAbertos++;
-            // Aqui você pode adicionar a lógica para contar coletas se necessário
-          }
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,10 +594,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                   ),
                   Expanded(
                     child: _buildStatItem(
-                      'Abertos',
-                      pontosAbertos.toString(),
-                      Icons.radio_button_checked,
-                      Colors.green,
+                      'Status',
+                      _projeto.status.value,
+                      _projeto.status == StatusProjeto.aberto ? Icons.lock_open : Icons.lock,
+                      _projeto.status == StatusProjeto.aberto ? Colors.green : Colors.grey,
                     ),
                   ),
                   Container(
@@ -360,10 +607,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                   ),
                   Expanded(
                     child: _buildStatItem(
-                      'Fechados',
-                      (totalPontos - pontosAbertos).toString(),
-                      Icons.radio_button_unchecked,
-                      Colors.grey,
+                      'Criado em',
+                      '${_projeto.dataInicio.day}/${_projeto.dataInicio.month}/${_projeto.dataInicio.year}',
+                      Icons.calendar_today,
+                      Color(0xFF8D6E63),
                     ),
                   ),
                 ],
@@ -383,10 +630,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         Text(
           value,
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: color,
           ),
+          textAlign: TextAlign.center,
         ),
         Text(
           label,
@@ -425,6 +673,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
   }
 
   Widget _buildEmptyState() {
+    final isAberto = _projeto.status == StatusProjeto.aberto;
+
     return Container(
       padding: EdgeInsets.all(40),
       child: Column(
@@ -453,7 +703,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           ),
           SizedBox(height: 8),
           Text(
-            'Toque em "Novo Ponto" para criar\no primeiro ponto de coleta',
+            isAberto
+                ? 'Toque em "Novo Ponto" para criar\no primeiro ponto de coleta'
+                : 'Este projeto está fechado.\nReabra para adicionar pontos.',
             style: TextStyle(
               color: Colors.grey[500],
               fontSize: 14,
@@ -466,8 +718,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
   }
 
   Widget _buildPontoCard(PontoColeta ponto, int index) {
-    final isAberto = ponto.status.value == 'ABERTO';
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -489,7 +739,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
               MaterialPageRoute(
                 builder: (_) => PontoDetailScreen(
                   ponto: ponto,
-                  projeto: widget.projeto,
+                  projeto: _projeto,
                 ),
               ),
             ).then((_) => _loadPontos());
@@ -498,20 +748,17 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
             padding: EdgeInsets.all(16),
             child: Row(
               children: [
-                // Indicador de status
+                // Ícone de localização
                 Container(
-                  width: 12,
-                  height: 12,
+                  padding: EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isAberto ? Colors.green : Colors.grey,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isAberto ? Colors.green : Colors.grey).withOpacity(0.3),
-                        blurRadius: 4,
-                        spreadRadius: 1,
-                      ),
-                    ],
+                    color: Color(0xFF8D6E63).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.location_on,
+                    color: Color(0xFF8D6E63),
+                    size: 20,
                   ),
                 ),
                 SizedBox(width: 16),
@@ -521,34 +768,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              ponto.nome,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF5D4037),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isAberto ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              ponto.status.value,
-                              style: TextStyle(
-                                color: isAberto ? Colors.green : Colors.grey,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        ponto.nome,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF5D4037),
+                        ),
                       ),
                       SizedBox(height: 8),
 
@@ -615,21 +841,25 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       ),
     );
   }
-  // Continuação da Parte 2...
 
   void _handleMenuAction(String action) {
     switch (action) {
+      case 'toggle_status':
+        _toggleStatusProjeto();
+        break;
       case 'metodologias':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ManageMetodologiasScreen(projeto: widget.projeto),
-          ),
-        );
+        if (_projeto.status == StatusProjeto.aberto) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ManageMetodologiasScreen(projeto: _projeto),
+            ),
+          );
+        }
         break;
       case 'mapa':
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProjectMapScreen(projeto: widget.projeto),
+            builder: (_) => ProjectMapScreen(projeto: _projeto),
           ),
         );
         break;
@@ -639,15 +869,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       case 'info':
         _showProjectInfo();
         break;
-      case 'delete': // NOVA AÇÃO
+      case 'delete':
         if (!_isDeleting) _confirmarDeleteProjeto();
         break;
     }
   }
 
-  // NOVA FUNÇÃO - Confirmação de exclusão
+  // Continuar com o resto dos métodos...
   Future<void> _confirmarDeleteProjeto() async {
-    // Contar pontos e coletas
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
     final totalPontos = projectProvider.pontosColeta.length;
 
@@ -659,7 +888,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         FROM coletas c
         INNER JOIN pontos_coleta p ON c.ponto_coleta_id = p.id
         WHERE p.projeto_id = ?
-      ''', [widget.projeto.id]);
+      ''', [_projeto.id]);
 
       totalColetas = result.first['count'] as int;
     } catch (e) {
@@ -713,7 +942,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                     children: [
                       Icon(Icons.folder, size: 16, color: Colors.red),
                       SizedBox(width: 8),
-                      Expanded(child: Text('1 projeto: ${widget.projeto.nome}')),
+                      Expanded(child: Text('1 projeto: ${_projeto.nome}')),
                     ],
                   ),
                   if (totalPontos > 0) ...[
@@ -802,7 +1031,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     );
   }
 
-  // NOVA FUNÇÃO - Execução da exclusão
   Future<void> _executarDeleteProjeto(BuildContext dialogContext) async {
     Navigator.pop(dialogContext);
 
@@ -827,27 +1055,25 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     try {
       final db = await DatabaseHelper.instance.database;
 
-      // Excluir em cascata
       await db.rawDelete('''
         DELETE FROM coletas 
         WHERE ponto_coleta_id IN (
           SELECT id FROM pontos_coleta WHERE projeto_id = ?
         )
-      ''', [widget.projeto.id]);
+      ''', [_projeto.id]);
 
       await db.delete(
         'pontos_coleta',
         where: 'projeto_id = ?',
-        whereArgs: [widget.projeto.id],
+        whereArgs: [_projeto.id],
       );
 
       await db.delete(
         'projetos',
         where: 'id = ?',
-        whereArgs: [widget.projeto.id],
+        whereArgs: [_projeto.id],
       );
 
-      // Recarregar lista de projetos
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
       await projectProvider.loadProjetos();
 
@@ -860,7 +1086,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
             children: [
               Icon(Icons.check_circle, color: Colors.white),
               SizedBox(width: 8),
-              Text('Projeto "${widget.projeto.nome}" excluído'),
+              Text('Projeto "${_projeto.nome}" excluído'),
             ],
           ),
           backgroundColor: Colors.green,
@@ -882,7 +1108,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       );
     }
   }
-  // Continuação da Parte 3...
 
   Future<void> _exportToExcel() async {
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
@@ -934,7 +1159,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         return;
       }
 
-      final filePath = await ExcelExporter.exportProject(widget.projeto, user);
+      final filePath = await ExcelExporter.exportProject(_projeto, user);
 
       if (filePath != null) {
         _showExportSuccessDialog(filePath);
@@ -1037,15 +1262,21 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoRow('Nome', widget.projeto.nome),
-            _buildInfoRow('Grupo', widget.projeto.grupoBiologico.displayName),
-            _buildInfoRow('Campanha', widget.projeto.campanha),
-            _buildInfoRow('Período', widget.projeto.periodo),
-            _buildInfoRow('Município', widget.projeto.municipio),
+            _buildInfoRow('Nome', _projeto.nome),
+            _buildInfoRow('Grupo', _projeto.grupoBiologico.displayName),
+            _buildInfoRow('Campanha', _projeto.campanha),
+            _buildInfoRow('Período', _projeto.periodo),
+            _buildInfoRow('Município', _projeto.municipio),
+            _buildInfoRow('Status', _projeto.status.value.toUpperCase()),
             _buildInfoRow(
               'Criado',
-              '${widget.projeto.dataInicio.day}/${widget.projeto.dataInicio.month}/${widget.projeto.dataInicio.year}',
+              '${_projeto.dataInicio.day}/${_projeto.dataInicio.month}/${_projeto.dataInicio.year}',
             ),
+            if (_projeto.dataFechamento != null)
+              _buildInfoRow(
+                'Fechado',
+                '${_projeto.dataFechamento!.day}/${_projeto.dataFechamento!.month}/${_projeto.dataFechamento!.year}',
+              ),
           ],
         ),
         actions: [
@@ -1090,5 +1321,3 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     );
   }
 }
-
-// FIM DA CLASSE

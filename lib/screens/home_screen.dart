@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/project_provider.dart';
 import '../models/projeto.dart';
+import '../utils/database_helper.dart';
+import '../models/enums.dart'; // Para StatusProjeto
 import 'create_project_screen.dart';
 import 'project_detail_screen.dart';
 
@@ -12,10 +14,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  StatusProjeto? _filtroStatus; // null = todos, StatusProjeto.aberto = só abertos, etc.
+  bool _mostrarFechados = true; // Controle rápido
+
   @override
   void initState() {
     super.initState();
     _loadProjetos();
+    _initializeTemplates();
   }
 
   Future<void> _loadProjetos() async {
@@ -23,17 +29,116 @@ class _HomeScreenState extends State<HomeScreen> {
     await projectProvider.loadProjetos();
   }
 
+  Future<void> _initializeTemplates() async {
+    try {
+      await DatabaseHelper.instance.createDefaultTemplates();
+      print('Templates padrão inicializados');
+    } catch (e) {
+      print('Erro ao inicializar templates: $e');
+    }
+  }
+
+  List<Projeto> _getFilteredProjects(List<Projeto> projetos) {
+    if (_filtroStatus != null) {
+      return projetos.where((p) => p.status == _filtroStatus).toList();
+    }
+
+    if (!_mostrarFechados) {
+      return projetos.where((p) => p.status == StatusProjeto.aberto).toList();
+    }
+
+    return projetos;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF8F6F4),
       appBar: AppBar(
         title: Text('Meus Projetos'),
+        backgroundColor: Color(0xFF8D6E63),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+        elevation: 2,
         actions: [
+          // Filtro rápido
           IconButton(
-            icon: Icon(Icons.person),
+            icon: Icon(_mostrarFechados ? Icons.visibility : Icons.visibility_off),
             onPressed: () {
-              _showUserInfo(context);
+              setState(() {
+                _mostrarFechados = !_mostrarFechados;
+                _filtroStatus = null; // Reset filtro específico
+              });
             },
+            tooltip: _mostrarFechados ? 'Ocultar fechados' : 'Mostrar fechados',
+          ),
+
+          // Filtro avançado
+          PopupMenuButton<StatusProjeto?>(
+            icon: Icon(_filtroStatus != null ? Icons.filter_alt : Icons.filter_list),
+            onSelected: (status) {
+              setState(() {
+                _filtroStatus = status;
+                if (status != null) _mostrarFechados = true; // Reset filtro rápido
+              });
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: null,
+                child: Row(
+                  children: [
+                    Icon(Icons.list, size: 16),
+                    SizedBox(width: 8),
+                    Text('Todos os projetos'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: StatusProjeto.aberto,
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_open, color: Colors.green, size: 16),
+                    SizedBox(width: 8),
+                    Text('Apenas abertos'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: StatusProjeto.fechado,
+                child: Row(
+                  children: [
+                    Icon(Icons.lock, color: Colors.grey, size: 16),
+                    SizedBox(width: 8),
+                    Text('Apenas fechados'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // Botão de adicionar projeto
+          Container(
+            margin: EdgeInsets.only(right: 12),
+            child: Material(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => CreateProjectScreen()),
+                  ).then((_) => _loadProjetos());
+                },
+                child: Container(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -41,89 +146,303 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, userProvider, projectProvider, child) {
           if (projectProvider.isLoading) {
             return Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          if (projectProvider.projetos.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.assignment,
-                    size: 80,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Nenhum projeto criado',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Toque no + para criar seu primeiro projeto',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
+              child: CircularProgressIndicator(
+                color: Color(0xFF8D6E63),
               ),
             );
           }
 
-          return RefreshIndicator(
-            onRefresh: _loadProjetos,
-            child: ListView.builder(
-              padding: EdgeInsets.all(16),
-              itemCount: projectProvider.projetos.length,
-              itemBuilder: (context, index) {
-                final projeto = projectProvider.projetos[index];
-                return _buildProjectCard(projeto);
-              },
-            ),
+          final todosProjetos = projectProvider.projetos;
+          final projetosFiltrados = _getFilteredProjects(todosProjetos);
+
+          // Contadores para estatísticas
+          final totalAbertos = todosProjetos.where((p) => p.status == StatusProjeto.aberto).length;
+          final totalFechados = todosProjetos.where((p) => p.status == StatusProjeto.fechado).length;
+
+          return Column(
+            children: [
+              // Header com estatísticas e filtros
+              if (todosProjetos.isNotEmpty) _buildStatsHeader(totalAbertos, totalFechados, projetosFiltrados.length),
+
+              // Lista de projetos
+              Expanded(
+                child: projetosFiltrados.isEmpty
+                    ? _buildEmptyState(todosProjetos.isEmpty)
+                    : RefreshIndicator(
+                  color: Color(0xFF8D6E63),
+                  onRefresh: _loadProjetos,
+                  child: ListView.builder(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 8,
+                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                    ),
+                    itemCount: projetosFiltrados.length,
+                    itemBuilder: (context, index) {
+                      final projeto = projetosFiltrados[index];
+                      return _buildProjectCard(projeto);
+                    },
+                  ),
+                ),
+              ),
+            ],
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => CreateProjectScreen()),
-          ).then((_) => _loadProjetos());
-        },
-        child: Icon(Icons.add),
-        backgroundColor: Color(0xFF8D6E63),
       ),
     );
   }
 
-  // NOVA FUNÇÃO - SUBSTITUI A ANTIGA _buildProjectCard
+  Widget _buildStatsHeader(int abertos, int fechados, int filtrados) {
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF8D6E63).withOpacity(0.1),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Estatísticas
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  'Abertos',
+                  abertos.toString(),
+                  Icons.lock_open,
+                  Colors.green,
+                ),
+              ),
+              Container(width: 1, height: 30, color: Colors.grey[300]),
+              Expanded(
+                child: _buildStatItem(
+                  'Fechados',
+                  fechados.toString(),
+                  Icons.lock,
+                  Colors.grey,
+                ),
+              ),
+              Container(width: 1, height: 30, color: Colors.grey[300]),
+              Expanded(
+                child: _buildStatItem(
+                  'Total',
+                  (abertos + fechados).toString(),
+                  Icons.folder,
+                  Color(0xFF8D6E63),
+                ),
+              ),
+            ],
+          ),
+
+          // Filtro ativo
+          if (_filtroStatus != null || !_mostrarFechados) ...[
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Color(0xFF8D6E63).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.filter_alt, size: 14, color: Color(0xFF8D6E63)),
+                  SizedBox(width: 4),
+                  Text(
+                    _filtroStatus != null
+                        ? 'Mostrando: ${_filtroStatus!.value.toLowerCase()}'
+                        : 'Ocultando: fechados',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8D6E63),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    '($filtrados)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8D6E63),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _filtroStatus = null;
+                        _mostrarFechados = true;
+                      });
+                    },
+                    child: Icon(Icons.close, size: 14, color: Color(0xFF8D6E63)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(bool isCompletelyEmpty) {
+    if (isCompletelyEmpty) {
+      // Sem projetos
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.assignment,
+              size: 80,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Nenhum projeto criado',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Toque no + no canto superior para criar',
+              style: TextStyle(
+                color: Colors.grey[500],
+              ),
+            ),
+            SizedBox(height: 24),
+            Container(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.arrow_upward,
+                    color: Color(0xFF8D6E63),
+                    size: 32,
+                  ),
+                  Text(
+                    'Clique aqui',
+                    style: TextStyle(
+                      color: Color(0xFF8D6E63),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Tem projetos, mas filtro não mostra nenhum
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.filter_alt_off,
+              size: 80,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Nenhum projeto encontrado',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              _filtroStatus != null
+                  ? 'Não há projetos ${_filtroStatus!.value.toLowerCase()}'
+                  : 'Todos os projetos estão fechados',
+              style: TextStyle(
+                color: Colors.grey[500],
+              ),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _filtroStatus = null;
+                  _mostrarFechados = true;
+                });
+              },
+              icon: Icon(Icons.clear_all),
+              label: Text('Mostrar todos'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF8D6E63),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   Widget _buildProjectCard(Projeto projeto) {
+    final isAberto = projeto.status == StatusProjeto.aberto;
+
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Color(0xFFFAF8F6), // Bege muito claro
-          ],
+          colors: isAberto
+              ? [Colors.white, Color(0xFFFAF8F6)]
+              : [Colors.grey.shade50, Colors.grey.shade100],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFF8D6E63).withOpacity(0.08),
+            color: isAberto
+                ? Color(0xFF8D6E63).withOpacity(0.08)
+                : Colors.grey.withOpacity(0.1),
             blurRadius: 12,
             spreadRadius: 0,
             offset: Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: Color(0xFFD7CCC8).withOpacity(0.3),
+          color: isAberto
+              ? Color(0xFFD7CCC8).withOpacity(0.3)
+              : Colors.grey.shade300,
           width: 1,
         ),
       ),
@@ -143,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header com ícone e título
+                // Header com ícone, título e status
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -152,15 +471,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
+                          colors: isAberto
+                              ? [
                             _getGroupColor(projeto.grupoBiologico),
                             _getGroupColor(projeto.grupoBiologico).withOpacity(0.8),
-                          ],
+                          ]
+                              : [Colors.grey.shade400, Colors.grey.shade500],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: _getGroupColor(projeto.grupoBiologico).withOpacity(0.3),
+                            color: isAberto
+                                ? _getGroupColor(projeto.grupoBiologico).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
                             blurRadius: 8,
                             offset: Offset(0, 2),
                           ),
@@ -180,16 +503,52 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            projeto.nome,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Color(0xFF3E2723),
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  projeto.nome,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: isAberto ? Color(0xFF3E2723) : Colors.grey.shade600,
+                                    height: 1.2,
+                                    decoration: isAberto ? null : TextDecoration.lineThrough,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // Badge de status
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isAberto
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.grey.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isAberto ? Icons.lock_open : Icons.lock,
+                                      color: isAberto ? Colors.green : Colors.grey,
+                                      size: 12,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      projeto.status.value.toUpperCase(),
+                                      style: TextStyle(
+                                        color: isAberto ? Colors.green : Colors.grey,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
 
                           SizedBox(height: 4),
@@ -197,13 +556,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: _getGroupColor(projeto.grupoBiologico).withOpacity(0.1),
+                              color: isAberto
+                                  ? _getGroupColor(projeto.grupoBiologico).withOpacity(0.1)
+                                  : Colors.grey.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               projeto.grupoBiologico.displayName,
                               style: TextStyle(
-                                color: _getGroupColor(projeto.grupoBiologico),
+                                color: isAberto
+                                    ? _getGroupColor(projeto.grupoBiologico)
+                                    : Colors.grey.shade600,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -217,13 +580,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Color(0xFFEFEBE9),
+                        color: isAberto ? Color(0xFFEFEBE9) : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         Icons.arrow_forward_ios,
                         size: 14,
-                        color: Color(0xFF8D6E63),
+                        color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
                       ),
                     ),
                   ],
@@ -235,27 +598,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Color(0xFFFAF8F6),
+                    color: isAberto ? Color(0xFFFAF8F6) : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Color(0xFFEFEBE9),
+                      color: isAberto ? Color(0xFFEFEBE9) : Colors.grey.shade300,
                       width: 1,
                     ),
                   ),
                   child: Column(
                     children: [
-                      _buildInfoRow(Icons.campaign, 'Campanha', projeto.campanha),
+                      _buildInfoRow(Icons.campaign, 'Campanha', projeto.campanha, isAberto),
                       SizedBox(height: 8),
-                      _buildInfoRow(Icons.water_drop, 'Período', projeto.periodo),
+                      _buildInfoRow(Icons.water_drop, 'Período', projeto.periodo, isAberto),
                       SizedBox(height: 8),
-                      _buildInfoRow(Icons.location_city, 'Município', projeto.municipio),
+                      _buildInfoRow(Icons.location_city, 'Município', projeto.municipio, isAberto),
                     ],
                   ),
                 ),
 
                 SizedBox(height: 12),
 
-                // Footer com data
+                // Footer com data e status adicional
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -264,34 +627,55 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icon(
                           Icons.calendar_today,
                           size: 14,
-                          color: Color(0xFF8D6E63),
+                          color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
                         ),
                         SizedBox(width: 4),
                         Text(
                           'Criado em ${projeto.dataInicio.day}/${projeto.dataInicio.month}/${projeto.dataInicio.year}',
                           style: TextStyle(
-                            color: Color(0xFF8D6E63),
+                            color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
                             fontSize: 12,
                           ),
                         ),
                       ],
                     ),
 
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Color(0xFF8D6E63).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Toque para abrir',
-                        style: TextStyle(
-                          color: Color(0xFF8D6E63),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+                    if (!isAberto && projeto.dataFechamento != null)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.lock,
+                            size: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Fechado em ${projeto.dataFechamento!.day}/${projeto.dataFechamento!.month}/${projeto.dataFechamento!.year}',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isAberto
+                              ? Color(0xFF8D6E63).withOpacity(0.1)
+                              : Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Toque para abrir',
+                          style: TextStyle(
+                            color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ],
@@ -302,20 +686,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // NOVA FUNÇÃO
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value, bool isAberto) {
     return Row(
       children: [
         Icon(
           icon,
           size: 16,
-          color: Color(0xFF8D6E63),
+          color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
         ),
         SizedBox(width: 8),
         Text(
           '$label: ',
           style: TextStyle(
-            color: Color(0xFF5D4037),
+            color: isAberto ? Color(0xFF5D4037) : Colors.grey.shade600,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -324,7 +707,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Text(
             value,
             style: TextStyle(
-              color: Color(0xFF3E2723),
+              color: isAberto ? Color(0xFF3E2723) : Colors.grey.shade600,
               fontSize: 13,
             ),
           ),
@@ -333,91 +716,57 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // NOVA FUNÇÃO
   Color _getGroupColor(grupoBiologico) {
     switch (grupoBiologico.code) {
       case 'ICTIOFAUNA':
-        return Color(0xFF1976D2); // Azul oceano
+        return Color(0xFF1976D2);
       case 'AVIFAUNA':
-        return Color(0xFF388E3C); // Verde floresta
+        return Color(0xFF388E3C);
       case 'HERPETOFAUNA':
-        return Color(0xFF8D6E63); // Marrom terra
+        return Color(0xFF8D6E63);
       case 'REPTEIS':
-        return Color(0xFF6D4C41); // Marrom escuro
+        return Color(0xFF6D4C41);
       case 'ANFIBIOS':
-        return Color(0xFF00796B); // Verde água
+        return Color(0xFF00796B);
       case 'MASTOFAUNA':
-        return Color(0xFF7B1FA2); // Roxo
+        return Color(0xFF7B1FA2);
       case 'ENTOMOFAUNA':
-        return Color(0xFFFF8F00); // Laranja
+        return Color(0xFFFF8F00);
       case 'MACROINVERTEBRADOS':
-        return Color(0xFF455A64); // Azul cinza
+        return Color(0xFF455A64);
       case 'FLORA':
-        return Color(0xFF689F38); // Verde planta
+        return Color(0xFF689F38);
       case 'ZOOPLANCTON':
-        return Color(0xFF0277BD); // Azul claro
+        return Color(0xFF0277BD);
       case 'FITOPLANCTON':
-        return Color(0xFF558B2F); // Verde musgo
+        return Color(0xFF558B2F);
       default:
-        return Color(0xFF8D6E63); // Marrom padrão
+        return Color(0xFF8D6E63);
     }
   }
 
-  // FUNÇÃO ATUALIZADA
   IconData _getIconForGroup(grupoBiologico) {
     switch (grupoBiologico.code) {
       case 'ICTIOFAUNA':
-        return Icons.waves; // Peixes/água
+        return Icons.waves;
       case 'AVIFAUNA':
-        return Icons.flutter_dash; // Aves
+        return Icons.flutter_dash;
       case 'HERPETOFAUNA':
-        return Icons.psychology; // Anfíbios e répteis
-      case 'REPTEIS':
-        return Icons.psychology; // Répteis
-      case 'ANFIBIOS':
-        return Icons.water_drop; // Anfíbios
+        return Icons.water_drop;
       case 'MASTOFAUNA':
-        return Icons.pets; // Mamíferos
+        return Icons.pets;
       case 'ENTOMOFAUNA':
-        return Icons.bug_report; // Insetos
+        return Icons.bug_report;
       case 'MACROINVERTEBRADOS':
-        return Icons.scatter_plot; // Invertebrados
+        return Icons.scatter_plot;
       case 'FLORA':
-        return Icons.local_florist; // Plantas
+        return Icons.local_florist;
       case 'ZOOPLANCTON':
-        return Icons.bubble_chart; // Plâncton animal
+        return Icons.bubble_chart;
       case 'FITOPLANCTON':
-        return Icons.grain; // Plâncton vegetal
+        return Icons.grain;
       default:
-        return Icons.science; // Padrão
+        return Icons.science;
     }
-  }
-
-  void _showUserInfo(BuildContext context) {
-    final user = Provider.of<UserProvider>(context, listen: false).currentUser;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Usuário'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Nome: ${user?.nome ?? 'N/A'}'),
-              SizedBox(height: 8),
-              Text('Criado em: ${user?.dataCriacao.day}/${user?.dataCriacao.month}/${user?.dataCriacao.year}'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Fechar'),
-            ),
-          ],
-        );
-      },
-    );
   }
 }

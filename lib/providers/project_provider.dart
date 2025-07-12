@@ -91,7 +91,6 @@ class ProjectProvider with ChangeNotifier {
         longitude: longitude,
         dataHora: DateTime.now(),
         observacoes: observacoes,
-        status: StatusPonto.aberto,
       );
 
       final id = await DatabaseHelper.instance.insertPontoColeta(ponto);

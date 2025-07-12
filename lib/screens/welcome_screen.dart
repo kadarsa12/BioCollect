@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import 'home_screen.dart';
+import 'main_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   @override
@@ -60,7 +61,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     if (userProvider.currentUser != null) {
       await Future.delayed(Duration(milliseconds: 1000));
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen()),
+        MaterialPageRoute(builder: (_) => MainScreen()),
       );
     }
   }
@@ -80,7 +81,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     await userProvider.createUser(_nomeController.text.trim());
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => HomeScreen()),
+      MaterialPageRoute(builder: (_) => MainScreen()),
     );
   }
 

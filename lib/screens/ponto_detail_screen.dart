@@ -80,8 +80,6 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAberto = widget.ponto.status.value == 'ABERTO';
-
     return Scaffold(
       backgroundColor: Color(0xFFF8F6F4),
       body: CustomScrollView(
@@ -97,8 +95,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      isAberto ? Colors.green : Colors.grey,
-                      isAberto ? Colors.green.shade700 : Colors.grey.shade700,
+                      Color(0xFF8D6E63),
+                      Color(0xFF5D4037),
                     ],
                   ),
                 ),
@@ -115,27 +113,13 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                   ),
                 ),
               ),
-              title: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.ponto.nome,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  Text(
-                    'Status: ${widget.ponto.status.value}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              title: Text(
+                widget.ponto.nome,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
               titlePadding: EdgeInsets.only(left: 16, bottom: 16),
             ),
@@ -254,7 +238,6 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
 
   Widget _buildPontoInfoCard() {
     final hasCoordinates = widget.ponto.latitude != 0.0 && widget.ponto.longitude != 0.0;
-    final isAberto = widget.ponto.status.value == 'ABERTO';
 
     return Container(
       margin: EdgeInsets.all(16),
@@ -278,12 +261,12 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: (isAberto ? Colors.green : Colors.grey).withOpacity(0.1),
+                  color: Color(0xFF8D6E63).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   Icons.location_on,
-                  color: isAberto ? Colors.green : Colors.grey,
+                  color: Color(0xFF8D6E63),
                   size: 20,
                 ),
               ),
@@ -296,35 +279,6 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                     fontSize: 16,
                     color: Color(0xFF5D4037),
                   ),
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isAberto ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: isAberto ? Colors.green : Colors.grey,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      widget.ponto.status.value,
-                      style: TextStyle(
-                        color: isAberto ? Colors.green : Colors.grey,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -963,7 +917,6 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
             ] else ...[
               _buildDialogInfoRow('Coordenadas', 'Não informadas', isWarning: true),
             ],
-            _buildDialogInfoRow('Status', widget.ponto.status.value),
             if (widget.ponto.observacoes != null && widget.ponto.observacoes!.isNotEmpty)
               _buildDialogInfoRow('Observações', widget.ponto.observacoes!),
           ],

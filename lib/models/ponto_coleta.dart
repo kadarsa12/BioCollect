@@ -8,7 +8,6 @@ class PontoColeta {
   final double longitude;
   final DateTime dataHora;
   final String? observacoes;
-  final StatusPonto status;
 
   PontoColeta({
     this.id,
@@ -18,7 +17,6 @@ class PontoColeta {
     required this.longitude,
     required this.dataHora,
     this.observacoes,
-    this.status = StatusPonto.aberto,
   });
 
   Map<String, dynamic> toMap() {
@@ -30,7 +28,6 @@ class PontoColeta {
       'longitude': longitude,
       'data_hora': dataHora.toIso8601String(),
       'observacoes': observacoes,
-      'status': status.value,
     };
   }
 
@@ -42,10 +39,7 @@ class PontoColeta {
       latitude: map['latitude'],
       longitude: map['longitude'],
       dataHora: DateTime.parse(map['data_hora']),
-      observacoes: map['observacoes'],
-      status: StatusPonto.values.firstWhere(
-            (e) => e.value == map['status'],
-      ),
+      observacoes: map['observacoes']
     );
   }
 }

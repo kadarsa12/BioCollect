@@ -52,32 +52,42 @@ class _ProjectMapScreenState extends State<ProjectMapScreen> {
           markers.add(
             Marker(
               point: LatLng(ponto.latitude, ponto.longitude),
-              width: 40,
-              height: 40,
+              width: 50,
+              height: 50,
               child: GestureDetector(
                 onTap: () => _showPontoInfo(ponto, coletas.length),
                 child: Container(
                   decoration: BoxDecoration(
                     color: _getMarkerColor(coletas.length),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: Colors.white, width: 3),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black26,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
                       ),
                     ],
                   ),
                   child: Center(
-                    child: Text(
-                      ponto.nome,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                      ),
-                      textAlign: TextAlign.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        if (coletas.length > 0)
+                          Text(
+                            '${coletas.length}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 8,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -106,11 +116,13 @@ class _ProjectMapScreenState extends State<ProjectMapScreen> {
 
   Color _getMarkerColor(int numColetas) {
     if (numColetas == 0) {
-      return Colors.blue;
-    } else if (numColetas <= 3) {
-      return Colors.green;
+      return Color(0xFF8D6E63); // Marrom padrão - sem coletas
+    } else if (numColetas <= 5) {
+      return Colors.green; // Verde - poucas coletas
+    } else if (numColetas <= 15) {
+      return Colors.orange; // Laranja - média coletas
     } else {
-      return Colors.orange;
+      return Colors.red; // Vermelho - muitas coletas
     }
   }
 
@@ -146,16 +158,21 @@ class _ProjectMapScreenState extends State<ProjectMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF8F6F4),
       appBar: AppBar(
         title: Text('Mapa - ${widget.projeto.nome}'),
+        backgroundColor: Color(0xFF8D6E63),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: _loadPontosAndCreateMarkers,
+            tooltip: 'Atualizar mapa',
           ),
           IconButton(
             icon: Icon(Icons.info_outline),
             onPressed: _showMapLegend,
+            tooltip: 'Legenda',
           ),
         ],
       ),
@@ -164,55 +181,151 @@ class _ProjectMapScreenState extends State<ProjectMapScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(
+              color: Color(0xFF8D6E63),
+            ),
             SizedBox(height: 16),
-            Text('Carregando pontos...'),
+            Text(
+              'Carregando pontos...',
+              style: TextStyle(
+                color: Color(0xFF5D4037),
+                fontSize: 16,
+              ),
+            ),
           ],
         ),
       )
           : _markers.isEmpty
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.location_off, size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'Nenhum ponto com coordenadas',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Adicione coordenadas GPS aos pontos para visualizá-los no mapa',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-          ],
+        child: Container(
+          padding: EdgeInsets.all(40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.location_off,
+                  size: 60,
+                  color: Colors.grey[400],
+                ),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Nenhum ponto com coordenadas',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Adicione coordenadas GPS aos pontos\npara visualizá-los no mapa',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.arrow_back),
+                label: Text('Voltar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF8D6E63),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       )
-          : FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter: _markers.isNotEmpty
-              ? _markers.first.point
-              : _defaultCenter,
-          initialZoom: 10.0,
-          minZoom: 1.0,
-          maxZoom: 18.0,
-        ),
+          : Stack(
         children: [
-          // Camada do mapa (OpenStreetMap)
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.biocollectapp',
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _markers.isNotEmpty
+                  ? _markers.first.point
+                  : _defaultCenter,
+              initialZoom: 12.0,
+              minZoom: 1.0,
+              maxZoom: 18.0,
+            ),
+            children: [
+              // Camada do mapa (OpenStreetMap)
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.biocollectapp',
+              ),
+              // Camada dos marcadores
+              MarkerLayer(markers: _markers),
+            ],
           ),
-          // Camada dos marcadores
-          MarkerLayer(markers: _markers),
+
+          // Card de informações do projeto
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.map,
+                      color: Color(0xFF8D6E63),
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.projeto.nome,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            '${_markers.length} pontos mapeados',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          // Botão para mostrar legenda
+          FloatingActionButton(
+            mini: true,
+            onPressed: _showMapLegend,
+            child: Icon(Icons.help_outline),
+            backgroundColor: Color(0xFF8D6E63),
+            foregroundColor: Colors.white,
+            heroTag: "legend",
+          ),
+          SizedBox(height: 8),
           // Botão para centralizar
           if (_markers.isNotEmpty)
             FloatingActionButton(
@@ -220,14 +333,16 @@ class _ProjectMapScreenState extends State<ProjectMapScreen> {
               onPressed: _fitMarkersInView,
               child: Icon(Icons.center_focus_strong),
               backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
               heroTag: "center",
             ),
-          SizedBox(height: 8),
+          if (_markers.isNotEmpty) SizedBox(height: 8),
           // Botão para voltar à lista
           FloatingActionButton(
             onPressed: () => Navigator.pop(context),
             child: Icon(Icons.list),
             backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
             heroTag: "list",
           ),
         ],
@@ -239,51 +354,110 @@ class _ProjectMapScreenState extends State<ProjectMapScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
             Container(
-              width: 20,
-              height: 20,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
                 color: _getMarkerColor(numColetas),
                 shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.location_on,
+                color: Colors.white,
+                size: 14,
               ),
             ),
-            SizedBox(width: 8),
-            Text(ponto.nome),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                ponto.nome,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF5D4037),
+                ),
+              ),
+            ),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Projeto: ${widget.projeto.nome}'),
-            SizedBox(height: 8),
-            Text('Coordenadas: ${ponto.latitude.toStringAsFixed(6)}, ${ponto.longitude.toStringAsFixed(6)}'),
-            SizedBox(height: 8),
-            Text('Coletas registradas: $numColetas'),
-            SizedBox(height: 8),
-            Text('Status: ${ponto.status.value}'),
-            if (ponto.observacoes != null && ponto.observacoes!.isNotEmpty) ...[
-              SizedBox(height: 8),
-              Text('Observações: ${ponto.observacoes}'),
-            ],
+            _buildInfoRow('Projeto', widget.projeto.nome),
+            _buildInfoRow('Grupo', widget.projeto.grupoBiologico.displayName),
+            _buildInfoRow(
+              'Coordenadas',
+              '${ponto.latitude.toStringAsFixed(6)}, ${ponto.longitude.toStringAsFixed(6)}',
+            ),
+            _buildInfoRow('Coletas registradas', '$numColetas'),
+            _buildInfoRow(
+              'Data de criação',
+              '${ponto.dataHora.day}/${ponto.dataHora.month}/${ponto.dataHora.year}',
+            ),
+            if (ponto.observacoes != null && ponto.observacoes!.isNotEmpty)
+              _buildInfoRow('Observações', ponto.observacoes!),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Fechar'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey[600],
+            ),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(context); // Fechar dialog
               Navigator.pop(context); // Voltar do mapa
             },
-            child: Text('Ver Ponto'),
+            icon: Icon(Icons.visibility, size: 16),
+            label: Text('Ver Detalhes'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: Color(0xFF8D6E63),
               foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: Color(0xFF5D4037),
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -295,40 +469,95 @@ class _ProjectMapScreenState extends State<ProjectMapScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Legenda do Mapa'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: Color(0xFF8D6E63)),
+            SizedBox(width: 8),
+            Text('Legenda do Mapa'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildLegendItem(Colors.blue, 'Ponto sem coletas'),
-            _buildLegendItem(Colors.green, 'Ponto com 1-3 coletas'),
-            _buildLegendItem(Colors.orange, 'Ponto com 4+ coletas'),
+            Text(
+              'Cores dos marcadores baseadas no número de coletas:',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 16),
+            _buildLegendItem(Color(0xFF8D6E63), 'Nenhuma coleta', '0'),
+            _buildLegendItem(Colors.green, 'Poucas coletas', '1-5'),
+            _buildLegendItem(Colors.orange, 'Médias coletas', '6-15'),
+            _buildLegendItem(Colors.red, 'Muitas coletas', '16+'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Fechar'),
+            style: TextButton.styleFrom(
+              foregroundColor: Color(0xFF8D6E63),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLegendItem(Color color, String description) {
+  Widget _buildLegendItem(Color color, String description, String range) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           Container(
-            width: 20,
-            height: 20,
+            width: 24,
+            height: 24,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.location_on,
+              color: Colors.white,
+              size: 14,
             ),
           ),
           SizedBox(width: 12),
-          Text(description),
+          Expanded(
+            child: Text(
+              description,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF5D4037),
+              ),
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              range,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );

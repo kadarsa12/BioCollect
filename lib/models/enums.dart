@@ -39,10 +39,10 @@ enum GrupoBiologico {
   }
 }
 
-enum StatusPonto {
+enum StatusProjeto {
   aberto('ABERTO'),
   fechado('FECHADO');
 
-  const StatusPonto(this.value);
+  const StatusProjeto(this.value);
   final String value;
 }
