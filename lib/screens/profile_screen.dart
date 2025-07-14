@@ -50,14 +50,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String get _orgLabel {
     switch (_type) {
       case UserType.academicResearcher:
-        return 'Institution (optional)';
+        return 'Instituição (opcional)';
       case UserType.independentConsultant:
       case UserType.companyEmployee:
-        return 'Company (optional)';
+        return 'Empresa (opcional)';
       case UserType.student:
-        return 'University (optional)';
+        return 'Universidade (opcional)';
       default:
-        return 'Organization (optional)';
+        return 'Organização (opcional)';
     }
   }
 
@@ -136,23 +136,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title (optional)'),
+                decoration: const InputDecoration(labelText: 'Titulo (opcional)'),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _specializationController,
                 decoration:
-                    const InputDecoration(labelText: 'Specialization (optional)'),
+                    const InputDecoration(labelText: 'Especialização (opcional)'),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email (optional)'),
+                decoration: const InputDecoration(labelText: 'Email (opcional)'),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _saveProfile,
-                child: const Text('Save'),
+                child: const Text('Salvar'),
               ),
             ],
           ),

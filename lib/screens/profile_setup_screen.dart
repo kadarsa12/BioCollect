@@ -52,14 +52,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   String get _orgLabel {
     switch (_type) {
       case UserType.academicResearcher:
-        return 'Institution (optional)';
+        return 'Instituição (opcional)';
       case UserType.independentConsultant:
       case UserType.companyEmployee:
-        return 'Company (optional)';
+        return 'Empresa (opcional)';
       case UserType.student:
-        return 'University (optional)';
+        return 'Universidade (opcional)';
       default:
-        return 'Organization (optional)';
+        return 'Organização (opcional)';
     }
   }
 
@@ -131,7 +131,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: const InputDecoration(labelText: 'Nome'),
                 validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
@@ -144,13 +144,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title (optional)'),
+                decoration: const InputDecoration(labelText: 'Titulo (optional)'),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _specializationController,
                 decoration:
-                    const InputDecoration(labelText: 'Specialization (optional)'),
+                    const InputDecoration(labelText: 'Especialização (optional)'),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -160,7 +160,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _saveProfile,
-                child: const Text('Save'),
+                child: const Text('Salvar'),
               ),
             ],
           ),

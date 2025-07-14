@@ -48,11 +48,11 @@ enum StatusProjeto {
 }
 
 enum UserType {
-  academicResearcher('Academic Researcher', 'Institution'),
-  independentConsultant('Independent Consultant', 'Company'),
-  companyEmployee('Company Employee', 'Company'),
-  student('Student', 'University'),
-  other('Other', 'Organization');
+  academicResearcher('Pesquisador Academico', 'Instituição'),
+  independentConsultant('Consultor independente', 'Empresa'),
+  companyEmployee('Funcionario da empresa', 'Empresa'),
+  student('Estudante', 'Universidade'),
+  other('Outro', 'Organização');
 
   const UserType(this.displayName, this.orgLabel);
   final String displayName;
