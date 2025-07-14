@@ -28,7 +28,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4, // <- AUMENTEI PARA 4
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -37,7 +37,7 @@ class DatabaseHelper {
   Future _createDB(Database db, int version) async {
     // Tabela de usuários
     await db.execute('''
-      CREATE TABLE usuarios (
+      CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
         data_criacao TEXT NOT NULL
@@ -45,42 +45,39 @@ class DatabaseHelper {
     ''');
 
     // Tabela de projetos
-     await db.execute('''
-       CREATE TABLE projetos (
-         id INTEGER PRIMARY KEY AUTOINCREMENT,
-         nome TEXT NOT NULL,
-         grupo_biologico TEXT NOT NULL,
-         campanha TEXT NOT NULL,
-         periodo TEXT NOT NULL,
-         municipio TEXT NOT NULL,
-         usuario_id INTEGER NOT NULL,
-         data_inicio TEXT NOT NULL,
-         status TEXT DEFAULT 'ABERTO',
-         data_fechamento TEXT,
-         FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
-       )
-     ''');
-
-    // Tabela de pontos de coleta
     await db.execute('''
-        CREATE TABLE projetos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT NOT NULL,
-    grupo_biologico TEXT NOT NULL,
-    campanha TEXT NOT NULL,
-    periodo TEXT NOT NULL,
-    municipio TEXT NOT NULL,
-    usuario_id INTEGER NOT NULL,
-    data_inicio TEXT NOT NULL,
-    status TEXT DEFAULT 'ABERTO',
-    data_fechamento TEXT,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
-  )
+      CREATE TABLE IF NOT EXISTS projetos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        grupo_biologico TEXT NOT NULL,
+        campanha TEXT NOT NULL,
+        periodo TEXT NOT NULL,
+        municipio TEXT NOT NULL,
+        usuario_id INTEGER NOT NULL,
+        data_inicio TEXT NOT NULL,
+        status TEXT DEFAULT 'ABERTO',
+        data_fechamento TEXT,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+      )
+    ''');
+
+    // Tabela de pontos de coleta - CORRIGIDA
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pontos_coleta (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        projeto_id INTEGER NOT NULL,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        data_hora TEXT NOT NULL,
+        observacoes TEXT,
+        FOREIGN KEY (projeto_id) REFERENCES projetos (id)
+      )
     ''');
 
     // Tabela de coletas
     await db.execute('''
-      CREATE TABLE coletas (
+      CREATE TABLE IF NOT EXISTS coletas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ponto_coleta_id INTEGER NOT NULL,
         metodologia TEXT NOT NULL,
@@ -96,7 +93,7 @@ class DatabaseHelper {
 
     // Tabela de metodologias personalizadas
     await db.execute('''
-      CREATE TABLE metodologias (
+      CREATE TABLE IF NOT EXISTS metodologias (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
         descricao TEXT,
@@ -121,17 +118,33 @@ class DatabaseHelper {
       await db.execute(_createExcelColumnsTable);
     }
 
-    // NOVA PARTE - Adicionar status aos projetos existentes
     if (oldVersion < 3) {
+      // Adicionar status aos projetos existentes
       await db.execute('ALTER TABLE projetos ADD COLUMN status TEXT DEFAULT "ABERTO"');
       await db.execute('ALTER TABLE projetos ADD COLUMN data_fechamento TEXT');
     }
-  }
 
+    if (oldVersion < 4) {
+      // Criar tabela pontos_coleta se não existir (caso tenha ficado faltando)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pontos_coleta (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nome TEXT NOT NULL,
+          projeto_id INTEGER NOT NULL,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          data_hora TEXT NOT NULL,
+          observacoes TEXT,
+          status TEXT NOT NULL,
+          FOREIGN KEY (projeto_id) REFERENCES projetos (id)
+        )
+      ''');
+    }
+  }
 
   // ===== DEFINIÇÕES DAS NOVAS TABELAS =====
   static const String _createExcelTemplatesTable = '''
-    CREATE TABLE excel_templates (
+    CREATE TABLE IF NOT EXISTS excel_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nome TEXT NOT NULL,
       grupoBiologico TEXT NOT NULL,
@@ -142,7 +155,7 @@ class DatabaseHelper {
   ''';
 
   static const String _createExcelColumnsTable = '''
-    CREATE TABLE excel_columns (
+    CREATE TABLE IF NOT EXISTS excel_columns (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       templateId INTEGER NOT NULL,
       campoOriginal TEXT NOT NULL,

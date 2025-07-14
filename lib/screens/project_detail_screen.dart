@@ -11,6 +11,8 @@ import 'create_ponto_screen.dart';
 import 'ponto_detail_screen.dart';
 import 'project_map_screen.dart';
 import 'manage_metodologias_screen.dart';
+import '../widgets/template_selection_dialog.dart';
+import '../models/excel_template.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final Projeto projeto;
@@ -1141,6 +1143,15 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       return;
     }
 
+    // NOVA PARTE: Mostrar dialog de seleção de template
+    final selectedTemplate = await showDialog<ExcelTemplate>(
+      context: context,
+      builder: (context) => TemplateSelectionDialog(projeto: _projeto),
+    );
+
+    // Se usuário cancelou, não exportar
+    if (selectedTemplate == null) return;
+
     setState(() {
       _isExporting = true;
     });
@@ -1159,7 +1170,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         return;
       }
 
-      final filePath = await ExcelExporter.exportProject(_projeto, user);
+      // MUDANÇA: Passar o template selecionado
+      final filePath = await ExcelExporter.exportProject(
+        _projeto,
+        user,
+        template: selectedTemplate,
+      );
 
       if (filePath != null) {
         _showExportSuccessDialog(filePath);
