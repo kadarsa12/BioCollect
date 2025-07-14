@@ -79,6 +79,7 @@ class ProjectProvider with ChangeNotifier {
   Future<int?> createPontoColeta({
     required String nome,
     required int projetoId,
+    required int usuarioId,
     required double latitude,
     required double longitude,
     String? observacoes,
@@ -87,6 +88,7 @@ class ProjectProvider with ChangeNotifier {
       final ponto = PontoColeta(
         nome: nome,
         projetoId: projetoId,
+        usuarioId: usuarioId,
         latitude: latitude,
         longitude: longitude,
         dataHora: DateTime.now(),
@@ -120,6 +122,7 @@ class ProjectProvider with ChangeNotifier {
   // Criar nova coleta
   Future<int?> createColeta({
     required int pontoColetaId,
+    required int usuarioId,
     required String metodologia,
     required String especie,
     String? nomePopular,
@@ -130,6 +133,7 @@ class ProjectProvider with ChangeNotifier {
     try {
       final coleta = Coleta(
         pontoColetaId: pontoColetaId,
+        usuarioId: usuarioId,
         metodologia: metodologia,
         especie: especie,
         nomePopular: nomePopular,

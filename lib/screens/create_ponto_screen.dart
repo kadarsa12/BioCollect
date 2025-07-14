@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/projeto.dart';
 import '../providers/project_provider.dart';
+import '../providers/user_provider.dart';
 
 class CreatePontoScreen extends StatefulWidget {
   final Projeto projeto;
@@ -643,6 +644,14 @@ class _CreatePontoScreenState extends State<CreatePontoScreen> {
   Future<void> _criarPonto() async {
     if (_formKey.currentState!.validate()) {
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+      final userId = Provider.of<UserProvider>(context, listen: false).currentUser?.id;
+
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: usuário não encontrado')),
+        );
+        return;
+      }
 
       double latitude = 0.0;
       double longitude = 0.0;
@@ -667,6 +676,7 @@ class _CreatePontoScreenState extends State<CreatePontoScreen> {
       final id = await projectProvider.createPontoColeta(
         nome: _nomeController.text,
         projetoId: widget.projeto.id!,
+        usuarioId: userId,
         latitude: latitude,
         longitude: longitude,
         observacoes: _observacoesController.text.isEmpty ? null : _observacoesController.text,

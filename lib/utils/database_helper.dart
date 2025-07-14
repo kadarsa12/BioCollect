@@ -28,7 +28,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // <- AUMENTEI PARA 4
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -39,8 +39,14 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        data_criacao TEXT NOT NULL
+        name TEXT NOT NULL,
+        user_type TEXT,
+        organization TEXT,
+        title TEXT,
+        specialization TEXT,
+        email TEXT,
+        avatar TEXT,
+        created_at TEXT NOT NULL
       )
     ''');
 
@@ -67,11 +73,13 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
         projeto_id INTEGER NOT NULL,
+        usuario_id INTEGER,
         latitude REAL NOT NULL,
         longitude REAL NOT NULL,
         data_hora TEXT NOT NULL,
         observacoes TEXT,
-        FOREIGN KEY (projeto_id) REFERENCES projetos (id)
+        FOREIGN KEY (projeto_id) REFERENCES projetos (id),
+        FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
       )
     ''');
 
@@ -80,6 +88,7 @@ class DatabaseHelper {
       CREATE TABLE IF NOT EXISTS coletas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ponto_coleta_id INTEGER NOT NULL,
+        usuario_id INTEGER,
         metodologia TEXT NOT NULL,
         especie TEXT NOT NULL,
         nome_popular TEXT,
@@ -87,7 +96,8 @@ class DatabaseHelper {
         caminho_foto TEXT,
         data_hora TEXT NOT NULL,
         observacoes TEXT,
-        FOREIGN KEY (ponto_coleta_id) REFERENCES pontos_coleta (id)
+        FOREIGN KEY (ponto_coleta_id) REFERENCES pontos_coleta (id),
+        FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
       )
     ''');
 
@@ -131,14 +141,29 @@ class DatabaseHelper {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           nome TEXT NOT NULL,
           projeto_id INTEGER NOT NULL,
+          usuario_id INTEGER,
           latitude REAL NOT NULL,
           longitude REAL NOT NULL,
           data_hora TEXT NOT NULL,
           observacoes TEXT,
           status TEXT NOT NULL,
-          FOREIGN KEY (projeto_id) REFERENCES projetos (id)
+          FOREIGN KEY (projeto_id) REFERENCES projetos (id),
+          FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
         )
       ''');
+    }
+
+    if (oldVersion < 5) {
+      await db.execute("ALTER TABLE usuarios ADD COLUMN user_type TEXT");
+      await db.execute("ALTER TABLE usuarios ADD COLUMN organization TEXT");
+      await db.execute("ALTER TABLE usuarios ADD COLUMN title TEXT");
+      await db.execute("ALTER TABLE usuarios ADD COLUMN specialization TEXT");
+      await db.execute("ALTER TABLE usuarios ADD COLUMN email TEXT");
+      await db.execute("ALTER TABLE usuarios ADD COLUMN avatar TEXT");
+      await db.execute("ALTER TABLE usuarios RENAME COLUMN nome TO name");
+      await db.execute("ALTER TABLE usuarios RENAME COLUMN data_criacao TO created_at");
+      await db.execute("ALTER TABLE pontos_coleta ADD COLUMN usuario_id INTEGER");
+      await db.execute("ALTER TABLE coletas ADD COLUMN usuario_id INTEGER");
     }
   }
 
@@ -171,6 +196,11 @@ class DatabaseHelper {
   Future<int> insertUser(User user) async {
     final db = await database;
     return await db.insert('usuarios', user.toMap());
+  }
+
+  Future<int> updateUser(User user) async {
+    final db = await database;
+    return await db.update('usuarios', user.toMap(), where: 'id = ?', whereArgs: [user.id]);
   }
 
   Future<User?> getUser() async {

@@ -25,26 +25,41 @@ class UserProvider with ChangeNotifier {
   }
 
   // Criar novo usuário
-  Future<void> createUser(String nome) async {
+  Future<void> createUser(User user) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final user = User(
-        nome: nome,
-        dataCriacao: DateTime.now(),
-      );
-
       final id = await DatabaseHelper.instance.insertUser(user);
       _currentUser = User(
         id: id,
-        nome: nome,
-        dataCriacao: user.dataCriacao,
+        name: user.name,
+        userType: user.userType,
+        organization: user.organization,
+        title: user.title,
+        specialization: user.specialization,
+        email: user.email,
+        avatar: user.avatar,
+        createdAt: user.createdAt,
       );
     } catch (e) {
       print('Erro ao criar usuário: $e');
     }
 
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> updateUser(User user) async {
+    if (user.id == null) return;
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await DatabaseHelper.instance.updateUser(user);
+      _currentUser = user;
+    } catch (e) {
+      print('Erro ao atualizar usuário: $e');
+    }
     _isLoading = false;
     notifyListeners();
   }

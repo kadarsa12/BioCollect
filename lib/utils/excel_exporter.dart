@@ -251,7 +251,7 @@ class ExcelExporter {
         }
         return observacoes;
       case 'tecnicoResponsavel':
-        return usuario.nome;
+        return usuario.generateSignature();
       default:
         print('Campo não mapeado: $campo');
         return '';
