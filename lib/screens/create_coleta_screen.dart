@@ -362,6 +362,11 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
   }
 
   Widget _buildEspecieColetadaItem(EspecieColetada especie, int index) {
+    // Exibir o nome da espécie ou nome popular - sempre um dos dois deve estar preenchido
+    final nomeExibir = especie.especie?.isNotEmpty == true
+        ? especie.especie!
+        : (especie.nomePopular ?? 'Sem identificação');
+
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(12),
@@ -427,13 +432,14 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  especie.especie,
+                  nomeExibir,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF5D4037),
                   ),
                 ),
-                if (especie.nomePopular != null && especie.nomePopular!.isNotEmpty)
+                // Mostrar ambos se existirem
+                if (especie.especie?.isNotEmpty == true && especie.nomePopular?.isNotEmpty == true && especie.especie != especie.nomePopular)
                   Text(
                     especie.nomePopular!,
                     style: TextStyle(
@@ -518,11 +524,38 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
           ),
           SizedBox(height: 16),
 
+          // Aviso sobre obrigatoriedade
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info, color: Colors.blue, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Preencha pelo menos um: nome científico OU nome popular',
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 16),
+
           // Nome científico
           TextFormField(
             controller: _especieController,
             decoration: InputDecoration(
-              labelText: 'Espécie (nome científico)',
+              labelText: 'Espécie (nome científico) *',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -532,6 +565,7 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
               ),
               prefixIcon: Icon(Icons.pets, color: Color(0xFF8D6E63)),
               hintText: 'Ex: Astyanax lacustris',
+              helperText: '* ou nome popular obrigatório',
             ),
           ),
           SizedBox(height: 16),
@@ -544,7 +578,7 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
                 child: TextFormField(
                   controller: _nomePopularController,
                   decoration: InputDecoration(
-                    labelText: 'Nome popular',
+                    labelText: 'Nome popular *',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -554,6 +588,7 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
                     ),
                     prefixIcon: Icon(Icons.label, color: Color(0xFF8D6E63)),
                     hintText: 'Ex: lambari',
+                    helperText: '* ou espécie obrigatório',
                   ),
                 ),
               ),
@@ -562,7 +597,7 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
                 child: TextFormField(
                   controller: _quantidadeController,
                   decoration: InputDecoration(
-                    labelText: 'Qtd',
+                    labelText: 'Qtd *',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -700,11 +735,11 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
                     _imagemCapturada = null;
                   });
                 },
-                child: Icon(Icons.delete, color: Colors.red, size: 18),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 ),
+                child: Icon(Icons.delete, color: Colors.red, size: 18),
               ),
             ],
           ],
@@ -714,10 +749,14 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
   }
 
   void _adicionarEspecie() {
-    if (_especieController.text.trim().isEmpty) {
+    // Validação: pelo menos um dos campos deve estar preenchido
+    final especiePreenchida = _especieController.text.trim().isNotEmpty;
+    final nomePopularPreenchido = _nomePopularController.text.trim().isNotEmpty;
+
+    if (!especiePreenchida && !nomePopularPreenchido) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Digite o nome da espécie'),
+          content: Text('Preencha pelo menos o nome científico OU o nome popular'),
           backgroundColor: Colors.red,
         ),
       );
@@ -736,10 +775,8 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
     }
 
     final novaEspecie = EspecieColetada(
-      especie: _especieController.text.trim(),
-      nomePopular: _nomePopularController.text.trim().isEmpty
-          ? null
-          : _nomePopularController.text.trim(),
+      especie: especiePreenchida ? _especieController.text.trim() : null,
+      nomePopular: nomePopularPreenchido ? _nomePopularController.text.trim() : null,
       quantidade: quantidade,
       caminhoFoto: _imagemCapturada?.path,
       observacoes: _observacoesController.text.trim().isEmpty
@@ -753,9 +790,12 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
 
     _limparFormulario();
 
+    // Nome para exibir na mensagem
+    final nomeParaMensagem = novaEspecie.especie ?? novaEspecie.nomePopular ?? 'Espécie';
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${novaEspecie.especie} adicionada!'),
+        content: Text('$nomeParaMensagem adicionada!'),
         backgroundColor: Colors.green,
       ),
     );
@@ -775,7 +815,7 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
     final especie = _especiesColetadas[index];
 
     // Preencher formulário com dados da espécie
-    _especieController.text = especie.especie;
+    _especieController.text = especie.especie ?? '';
     _nomePopularController.text = especie.nomePopular ?? '';
     _quantidadeController.text = especie.quantidade.toString();
     _observacoesController.text = especie.observacoes ?? '';
@@ -789,9 +829,11 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
       _especiesColetadas.removeAt(index);
     });
 
+    final nomeParaMensagem = especie.especie ?? especie.nomePopular ?? 'Espécie';
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${especie.especie} carregada para edição'),
+        content: Text('$nomeParaMensagem carregada para edição'),
         backgroundColor: Colors.blue,
       ),
     );
@@ -799,13 +841,14 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
 
   void _removerEspecie(int index) {
     final especie = _especiesColetadas[index];
+    final nomeParaMensagem = especie.especie ?? especie.nomePopular ?? 'Espécie';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text('Remover Espécie'),
-        content: Text('Deseja remover "${especie.especie}" da lista?'),
+        content: Text('Deseja remover "$nomeParaMensagem" da lista?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -819,7 +862,7 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('${especie.especie} removida'),
+                  content: Text('$nomeParaMensagem removida'),
                   backgroundColor: Colors.orange,
                 ),
               );
@@ -888,11 +931,11 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
                 Navigator.pop(context);
               }
             },
-            child: Text('Criar'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Color(0xFF8D6E63),
               foregroundColor: Colors.white,
             ),
+            child: Text('Criar'),
           ),
         ],
       ),
@@ -1035,20 +1078,22 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
           final id = await projectProvider.createColeta(
             pontoColetaId: widget.ponto.id!,
             metodologia: _metodologiaSelecionada!,
-            especie: especie.especie,
-            nomePopular: especie.nomePopular,
+            especie: especie.especie ?? '', // Converter null para string vazia
+            nomePopular: especie.nomePopular ?? '', // Converter null para string vazia
             quantidade: especie.quantidade,
             caminhoFoto: especie.caminhoFoto,
-            observacoes: especie.observacoes,
+            observacoes: especie.observacoes ?? '', // Converter null para string vazia
           );
 
           if (id != null) {
             sucessos++;
           } else {
-            erros.add(especie.especie);
+            final nomeParaErro = especie.especie ?? especie.nomePopular ?? 'Espécie sem nome';
+            erros.add(nomeParaErro);
           }
         } catch (e) {
-          erros.add('${especie.especie} (${e.toString()})');
+          final nomeParaErro = especie.especie ?? especie.nomePopular ?? 'Espécie sem nome';
+          erros.add('$nomeParaErro (${e.toString()})');
         }
       }
 
@@ -1117,15 +1162,15 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
 
 // Classe para representar uma espécie coletada temporariamente
 class EspecieColetada {
-  final String especie;
+  final String? especie;
   final String? nomePopular;
   final int quantidade;
   final String? caminhoFoto;
   final String? observacoes;
 
   EspecieColetada({
-    required this.especie,
-    this.nomePopular,
+    this.especie, // Agora pode ser null
+    this.nomePopular, // Agora pode ser null
     required this.quantidade,
     this.caminhoFoto,
     this.observacoes,

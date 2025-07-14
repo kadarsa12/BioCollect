@@ -63,16 +63,23 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
     _coletasAgrupadas.clear();
 
     for (final coleta in coletas) {
-      if (_coletasAgrupadas.containsKey(coleta.metodologia)) {
-        _coletasAgrupadas[coleta.metodologia]!.add(coleta);
+      // Tratar metodologia como opcional
+      final metodologia = coleta.metodologia ?? 'Metodologia não informada';
+
+      if (_coletasAgrupadas.containsKey(metodologia)) {
+        _coletasAgrupadas[metodologia]!.add(coleta);
       } else {
-        _coletasAgrupadas[coleta.metodologia] = [coleta];
+        _coletasAgrupadas[metodologia] = [coleta];
       }
     }
 
-    // Ordenar as espécies dentro de cada metodologia
+    // Ordenar as espécies dentro de cada metodologia - CORRIGIDO para campos opcionais
     _coletasAgrupadas.forEach((metodologia, especies) {
-      especies.sort((a, b) => a.especie.compareTo(b.especie));
+      especies.sort((a, b) {
+        final especieA = a.especie ?? 'Não identificada';
+        final especieB = b.especie ?? 'Não identificada';
+        return especieA.compareTo(especieB);
+      });
     });
 
     setState(() {});
@@ -540,6 +547,10 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
   }
 
   Widget _buildEspecieItem(Coleta coleta, bool isLast) {
+    // Tratar campos opcionais
+    final especie = coleta.especie ?? 'Não identificada';
+    final nomePopular = coleta.nomePopular ?? '';
+
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -563,16 +574,16 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  coleta.especie,
+                  especie,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                     color: Color(0xFF5D4037),
                   ),
                 ),
-                if (coleta.nomePopular != null && coleta.nomePopular!.isNotEmpty)
+                if (nomePopular.isNotEmpty)
                   Text(
-                    coleta.nomePopular!,
+                    nomePopular,
                     style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 14,
@@ -762,6 +773,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
 
   void _editarQuantidadeRapida(Coleta coleta) {
     final _quantidadeController = TextEditingController(text: coleta.quantidade.toString());
+    final especie = coleta.especie ?? 'Não identificada';
+    final metodologia = coleta.metodologia ?? 'Não informada';
 
     showDialog(
       context: context,
@@ -792,14 +805,14 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          coleta.especie,
+                          especie,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF5D4037),
                           ),
                         ),
                         Text(
-                          'Metodologia: ${coleta.metodologia}',
+                          'Metodologia: $metodologia',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -964,6 +977,12 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
   }
 
   void _showColetaDetail(Coleta coleta) {
+    // Tratar campos opcionais
+    final especie = coleta.especie ?? 'Não identificada';
+    final nomePopular = coleta.nomePopular ?? '';
+    final metodologia = coleta.metodologia ?? 'Não informada';
+    final observacoes = coleta.observacoes ?? '';
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -1060,15 +1079,15 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
 
                       // Informações organizadas em cards
                       _buildDetailCard('Identificação', [
-                        _buildDetailRow('Espécie', coleta.especie),
-                        if (coleta.nomePopular != null && coleta.nomePopular!.isNotEmpty)
-                          _buildDetailRow('Nome popular', coleta.nomePopular!),
+                        _buildDetailRow('Espécie', especie),
+                        if (nomePopular.isNotEmpty)
+                          _buildDetailRow('Nome popular', nomePopular),
                       ]),
 
                       SizedBox(height: 16),
 
                       _buildDetailCard('Coleta', [
-                        _buildDetailRow('Metodologia', coleta.metodologia),
+                        _buildDetailRow('Metodologia', metodologia),
                         _buildDetailRow('Quantidade', coleta.quantidade.toString()),
                         _buildDetailRow(
                           'Data/Hora',
@@ -1076,11 +1095,11 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                         ),
                       ]),
 
-                      if (coleta.observacoes != null && coleta.observacoes!.isNotEmpty) ...[
+                      if (observacoes.isNotEmpty) ...[
                         SizedBox(height: 16),
                         _buildDetailCard('Observações', [
                           Text(
-                            coleta.observacoes!,
+                            observacoes,
                             style: TextStyle(
                               fontSize: 14,
                               color: Color(0xFF5D4037),

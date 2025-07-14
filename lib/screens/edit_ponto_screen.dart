@@ -257,14 +257,16 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
 
-                    // Campos de coordenadas tradicionais
-                    _buildTraditionalCoordinateInputs(),
+                    // Campos de coordenadas tradicionais - só aparecem no modo manual
+                    if (_useManualCoordinates) ...[
+                      SizedBox(height: 16),
+                      _buildTraditionalCoordinateInputs(),
+                    ],
 
                     // Preview das coordenadas
-                    if (!_useManualCoordinates && _hasCoordinates()) ...[
-                      SizedBox(height: 12),
+                    SizedBox(height: 12),
+                    if (_hasCoordinates())
                       Container(
                         padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -299,8 +301,32 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
                             ),
                           ],
                         ),
+                      )
+                    else if (!_useManualCoordinates)
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.location_off, color: Colors.grey),
+                            SizedBox(height: 8),
+                            Text(
+                              'Coordenadas não informadas',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            Text(
+                              'Use Atualizar GPS ou clique em Editar para inserir',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
                   ],
                 ),
               ),

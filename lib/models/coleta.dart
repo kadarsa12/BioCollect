@@ -2,7 +2,7 @@ class Coleta {
   final int? id;
   final int pontoColetaId;
   final String metodologia;
-  final String especie;
+  final String? especie;
   final String? nomePopular;
   final int quantidade;
   final String? caminhoFoto;
