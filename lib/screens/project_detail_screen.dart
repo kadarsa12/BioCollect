@@ -13,6 +13,7 @@ import 'project_map_screen.dart';
 import 'manage_metodologias_screen.dart';
 import '../widgets/template_selection_dialog.dart';
 import '../models/excel_template.dart';
+import 'project_stats_screen.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final Projeto projeto;
@@ -238,6 +239,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                         Icon(Icons.map, color: Color(0xFF8D6E63), size: 20),
                         SizedBox(width: 12),
                         Text('Ver Mapa'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'stats',
+                    child: Row(
+                      children: [
+                        Icon(Icons.bar_chart, color: Color(0xFF8D6E63), size: 20),
+                        SizedBox(width: 12),
+                        Text('Estatísticas'),
                       ],
                     ),
                   ),
@@ -862,6 +873,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => ProjectMapScreen(projeto: _projeto),
+          ),
+        );
+        break;
+      case 'stats':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProjectStatsScreen(projeto: _projeto),
           ),
         );
         break;
