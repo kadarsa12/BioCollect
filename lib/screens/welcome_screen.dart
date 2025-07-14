@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../models/user.dart';
+import 'profile_setup_screen.dart';
 import 'home_screen.dart';
 import 'main_screen.dart';
 
@@ -78,10 +80,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     }
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    await userProvider.createUser(_nomeController.text.trim());
+    final user = User(
+      name: _nomeController.text.trim(),
+      createdAt: DateTime.now(),
+    );
+    await userProvider.createUser(user);
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => MainScreen()),
+      MaterialPageRoute(builder: (_) => ProfileSetupScreen(isFirstTime: true)),
     );
   }
 

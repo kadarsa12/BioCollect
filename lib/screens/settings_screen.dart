@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/excel_templates_screen.dart';
+import 'profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   @override
@@ -53,9 +54,9 @@ class SettingsScreen extends StatelessWidget {
               _buildSettingsTile(
                 context,
                 'Informações do Usuário',
-                'Nome, data de criação',
+                'Editar perfil',
                 Icons.account_circle,
-                    () => _showUserInfo(context),
+                    () => _openProfileScreen(context),
                 trailing: Icon(Icons.arrow_forward_ios, size: 16),
               ),
               _buildSettingsTile(
@@ -224,6 +225,13 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  void _openProfileScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ProfileScreen()),
+    );
+  }
+
   void _showUserInfo(BuildContext context) {
     final user = Provider.of<UserProvider>(context, listen: false).currentUser;
 
@@ -242,12 +250,12 @@ class SettingsScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoRow('Nome', user?.nome ?? 'N/A'),
+            _buildInfoRow('Nome', user?.name ?? 'N/A'),
             SizedBox(height: 12),
             _buildInfoRow(
                 'Criado em',
                 user != null
-                    ? '${user.dataCriacao.day}/${user.dataCriacao.month}/${user.dataCriacao.year}'
+                    ? '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}'
                     : 'N/A'
             ),
           ],

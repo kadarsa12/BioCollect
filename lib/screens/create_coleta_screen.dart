@@ -1073,10 +1073,20 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
       int sucessos = 0;
       List<String> erros = [];
 
+      final userId = Provider.of<UserProvider>(context, listen: false).currentUser?.id;
+      if (userId == null) {
+        Navigator.pop(context); // close dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: usuário não encontrado')),
+        );
+        return;
+      }
+
       for (final especie in _especiesColetadas) {
         try {
           final id = await projectProvider.createColeta(
             pontoColetaId: widget.ponto.id!,
+            usuarioId: userId,
             metodologia: _metodologiaSelecionada!,
             especie: especie.especie ?? '', // Converter null para string vazia
             nomePopular: especie.nomePopular ?? '', // Converter null para string vazia

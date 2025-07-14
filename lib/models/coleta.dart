@@ -1,6 +1,7 @@
 class Coleta {
   final int? id;
   final int pontoColetaId;
+  final int? usuarioId;
   final String metodologia;
   final String? especie;
   final String? nomePopular;
@@ -12,6 +13,7 @@ class Coleta {
   Coleta({
     this.id,
     required this.pontoColetaId,
+    this.usuarioId,
     required this.metodologia,
     required this.especie,
     this.nomePopular,
@@ -25,6 +27,7 @@ class Coleta {
     return {
       'id': id,
       'ponto_coleta_id': pontoColetaId,
+      'usuario_id': usuarioId,
       'metodologia': metodologia,
       'especie': especie,
       'nome_popular': nomePopular,
@@ -39,6 +42,7 @@ class Coleta {
     return Coleta(
       id: map['id'],
       pontoColetaId: map['ponto_coleta_id'],
+      usuarioId: map['usuario_id'],
       metodologia: map['metodologia'],
       especie: map['especie'],
       nomePopular: map['nome_popular'],

@@ -46,3 +46,15 @@ enum StatusProjeto {
   const StatusProjeto(this.value);
   final String value;
 }
+
+enum UserType {
+  academicResearcher('Academic Researcher', 'Institution'),
+  independentConsultant('Independent Consultant', 'Company'),
+  companyEmployee('Company Employee', 'Company'),
+  student('Student', 'University'),
+  other('Other', 'Organization');
+
+  const UserType(this.displayName, this.orgLabel);
+  final String displayName;
+  final String orgLabel;
+}
