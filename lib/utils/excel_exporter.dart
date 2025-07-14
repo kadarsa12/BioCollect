@@ -7,14 +7,25 @@ import '../models/projeto.dart';
 import '../models/ponto_coleta.dart';
 import '../models/coleta.dart';
 import '../models/user.dart';
+import '../models/excel_template.dart';
 import '../utils/database_helper.dart';
 
 class ExcelExporter {
-  static Future<String?> exportProject(Projeto projeto, User usuario) async {
+  static Future<String?> exportProject(
+      Projeto projeto,
+      User usuario,
+      {ExcelTemplate? template}
+      ) async {
     try {
-      print('=== INICIANDO EXPORT ===');
+      print('=== INICIANDO EXPORT COM TEMPLATE ===');
       print('Projeto: ${projeto.nome}');
-      print('Usuário: ${usuario.nome}');
+      print('Template: ${template?.nome ?? "Padrão"}');
+
+      // Se não tem template, usar padrão
+      if (template == null) {
+        print('Criando template padrão...');
+        template = await _getDefaultTemplate(projeto.grupoBiologico.code);
+      }
 
       // Criar workbook
       print('Criando workbook...');
@@ -23,9 +34,9 @@ class ExcelExporter {
       worksheet.name = 'Coletas_${projeto.campanha}';
       print('Workbook criado com sucesso');
 
-      // Configurar cabeçalhos
+      // Configurar cabeçalhos baseado no template
       print('Configurando cabeçalhos...');
-      _setupHeaders(worksheet, projeto);
+      _setupHeadersFromTemplate(worksheet, template);
       print('Cabeçalhos configurados');
 
       // Buscar dados do projeto
@@ -44,21 +55,22 @@ class ExcelExporter {
 
         if (coletas.isEmpty) {
           print('Adicionando linha sem coleta para ponto ${ponto.nome}');
-          _addRowData(worksheet, currentRow, projeto, ponto, null, usuario);
+          _addRowDataFromTemplate(worksheet, currentRow, projeto, ponto, null, usuario, template);
           currentRow++;
         } else {
           for (int j = 0; j < coletas.length; j++) {
             final coleta = coletas[j];
             print('Adicionando coleta ${j + 1} do ponto ${ponto.nome}');
-            _addRowData(worksheet, currentRow, projeto, ponto, coleta, usuario);
+            _addRowDataFromTemplate(worksheet, currentRow, projeto, ponto, coleta, usuario, template);
             currentRow++;
           }
         }
       }
 
       print('Dados adicionados, ajustando colunas...');
-      // Auto-fit colunas
-      for (int i = 1; i <= 26; i++) {
+      // Auto-fit colunas apenas para as colunas ativas
+      final activeCols = template.colunas.where((c) => c.ativo).length;
+      for (int i = 1; i <= activeCols; i++) {
         worksheet.autoFitColumn(i);
       }
 
@@ -70,7 +82,7 @@ class ExcelExporter {
       // Obter diretório para salvar
       print('Obtendo diretório...');
       final Directory directory = await getApplicationDocumentsDirectory();
-      final String fileName = _generateFileName(projeto);
+      final String fileName = _generateFileName(projeto, template);
       final String filePath = '${directory.path}/$fileName';
 
       print('Salvando arquivo: $filePath');
@@ -87,139 +99,171 @@ class ExcelExporter {
     }
   }
 
-  static void _setupHeaders(Worksheet worksheet, Projeto projeto) {
-    // Cabeçalhos padrão para todos os grupos (baseado no seu exemplo de peixes)
-    final List<String> headers = <String>[
-      'Campanha',           // A
-      'Data',               // B
-      'Período (Seca ou Cheia)', // C
-      'Município',          // D
-      'Latitude (S)',       // E
-      'Longitude (W)',      // F
-      'Ponto (P1,P2...)',   // G
-      'Ordem',              // H
-      'Família',            // I
-      'Espécie',            // J
-      'Nome popular',       // K
-      'Quantidade (N)',     // L
-      'Metodologia',        // M
-      'Habitat (relativo à espécie)', // N
-      'Endemismo',          // O
-      'IUCN',               // P
-      'MMA 2022',           // Q
-      'MMA 2014',           // R
-      'CITES',              // S
-      'Importância ecológica', // T
-      'Espécies cinegéticas',  // U
-      'Outro interesse humano', // V
-      'Guilda',             // W
-      'Migração',           // X
-      'Observações',        // Y
-      'Técnico responsável', // Z
-    ];
+  static Future<ExcelTemplate> _getDefaultTemplate(String grupoBiologico) async {
+    // Tentar buscar template padrão do banco
+    try {
+      final templates = await DatabaseHelper.instance.getTemplatesByGrupo(grupoBiologico);
+      final defaultTemplate = templates.firstWhere(
+            (t) => t.isDefault,
+        orElse: () => templates.isNotEmpty ? templates.first : _createFallbackTemplate(grupoBiologico),
+      );
+      return defaultTemplate;
+    } catch (e) {
+      print('Erro ao buscar template padrão: $e');
+      return _createFallbackTemplate(grupoBiologico);
+    }
+  }
+
+  static ExcelTemplate _createFallbackTemplate(String grupoBiologico) {
+    // Template básico caso não exista nenhum no banco
+    return ExcelTemplate(
+      nome: 'Template Padrão',
+      grupoBiologico: grupoBiologico,
+      colunas: [
+        ExcelColumn(campoOriginal: 'campanha', nomeExibicao: 'Campanha', ordem: 0),
+        ExcelColumn(campoOriginal: 'data', nomeExibicao: 'Data', ordem: 1),
+        ExcelColumn(campoOriginal: 'municipio', nomeExibicao: 'Município', ordem: 2),
+        ExcelColumn(campoOriginal: 'ponto', nomeExibicao: 'Ponto', ordem: 3),
+        ExcelColumn(campoOriginal: 'especie', nomeExibicao: 'Espécie', ordem: 4),
+        ExcelColumn(campoOriginal: 'quantidade', nomeExibicao: 'Quantidade', ordem: 5),
+        ExcelColumn(campoOriginal: 'tecnicoResponsavel', nomeExibicao: 'Técnico', ordem: 6),
+      ],
+    );
+  }
+
+  static void _setupHeadersFromTemplate(Worksheet worksheet, ExcelTemplate template) {
+    // Filtrar apenas colunas ativas e ordenar
+    final activeCols = template.colunas
+        .where((c) => c.ativo)
+        .toList()
+      ..sort((a, b) => a.ordem.compareTo(b.ordem));
 
     // Aplicar cabeçalhos
-    for (int i = 0; i < headers.length; i++) {
+    for (int i = 0; i < activeCols.length; i++) {
       final cell = worksheet.getRangeByIndex(1, i + 1);
-      cell.setText(headers[i]);
+      cell.setText(activeCols[i].nomeExibicao);
       cell.cellStyle.bold = true;
       cell.cellStyle.backColor = '#E0E0E0';
     }
   }
 
-  static void _addRowData(
+  static void _addRowDataFromTemplate(
       Worksheet worksheet,
       int row,
       Projeto projeto,
       PontoColeta ponto,
       Coleta? coleta,
       User usuario,
+      ExcelTemplate template,
       ) {
+    // Filtrar apenas colunas ativas e ordenar
+    final activeCols = template.colunas
+        .where((c) => c.ativo)
+        .toList()
+      ..sort((a, b) => a.ordem.compareTo(b.ordem));
+
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
 
-    // Coluna A - Campanha
-    worksheet.getRangeByIndex(row, 1).setText(projeto.campanha);
+    // Preencher dados baseado no template
+    for (int i = 0; i < activeCols.length; i++) {
+      final coluna = activeCols[i];
+      final cell = worksheet.getRangeByIndex(row, i + 1);
 
-    // Coluna B - Data (da coleta ou do ponto se não houver coleta)
-    final data = coleta?.dataHora ?? ponto.dataHora;
-    worksheet.getRangeByIndex(row, 2).setText(dateFormat.format(data));
+      // Obter valor baseado no campo
+      final valor = _getFieldValue(coluna.campoOriginal, projeto, ponto, coleta, usuario, dateFormat);
 
-    // Coluna C - Período
-    worksheet.getRangeByIndex(row, 3).setText(projeto.periodo);
-
-    // Coluna D - Município
-    worksheet.getRangeByIndex(row, 4).setText(projeto.municipio);
-
-    // Coluna E - Latitude
-    if (ponto.latitude != 0.0) {
-      worksheet.getRangeByIndex(row, 5).setText("${ponto.latitude.toStringAsFixed(6)}°S");
-    } else {
-      worksheet.getRangeByIndex(row, 5).setText('');
+      // Aplicar formatação baseada no tipo
+      if (coluna.formato == 'numero' && valor is num) {
+        cell.setNumber(valor.toDouble());
+      } else {
+        cell.setText(valor?.toString() ?? '');
+      }
     }
-
-    // Coluna F - Longitude
-    if (ponto.longitude != 0.0) {
-      worksheet.getRangeByIndex(row, 6).setText("${ponto.longitude.toStringAsFixed(6)}°W");
-    } else {
-      worksheet.getRangeByIndex(row, 6).setText('');
-    }
-
-    // Coluna G - Ponto
-    worksheet.getRangeByIndex(row, 7).setText(ponto.nome);
-
-    // Se tem coleta, preencher dados da coleta
-    if (coleta != null) {
-      // Coluna H - Ordem (vazio por enquanto - campo científico opcional)
-      worksheet.getRangeByIndex(row, 8).setText('');
-
-      // Coluna I - Família (vazio por enquanto - campo científico opcional)
-      worksheet.getRangeByIndex(row, 9).setText('');
-
-      // Coluna J - Espécie
-      worksheet.getRangeByIndex(row, 10).setText(coleta.especie);
-
-      // Coluna K - Nome popular
-      worksheet.getRangeByIndex(row, 11).setText(coleta.nomePopular ?? '');
-
-      // Coluna L - Quantidade
-      worksheet.getRangeByIndex(row, 12).setNumber(coleta.quantidade.toDouble());
-
-      // Coluna M - Metodologia
-      worksheet.getRangeByIndex(row, 13).setText(coleta.metodologia);
-
-      // Colunas N a X - Campos científicos (vazios por enquanto)
-      for (int i = 14; i <= 24; i++) {
-        worksheet.getRangeByIndex(row, i).setText('');
-      }
-
-      // Coluna Y - Observações (do ponto + da coleta)
-      String observacoes = '';
-      if (ponto.observacoes != null && ponto.observacoes!.isNotEmpty) {
-        observacoes += 'Ponto: ${ponto.observacoes}';
-      }
-      if (coleta.observacoes != null && coleta.observacoes!.isNotEmpty) {
-        if (observacoes.isNotEmpty) observacoes += ' | ';
-        observacoes += 'Coleta: ${coleta.observacoes}';
-      }
-      worksheet.getRangeByIndex(row, 25).setText(observacoes);
-    } else {
-      // Sem coleta - preencher apenas campos básicos
-      for (int i = 8; i <= 24; i++) {
-        worksheet.getRangeByIndex(row, i).setText('');
-      }
-      // Observações só do ponto
-      worksheet.getRangeByIndex(row, 25).setText(ponto.observacoes ?? '');
-    }
-
-    // Coluna Z - Técnico responsável
-    worksheet.getRangeByIndex(row, 26).setText(usuario.nome);
   }
 
-  static String _generateFileName(Projeto projeto) {
+  static dynamic _getFieldValue(
+      String campo,
+      Projeto projeto,
+      PontoColeta ponto,
+      Coleta? coleta,
+      User usuario,
+      DateFormat dateFormat,
+      ) {
+    switch (campo) {
+      case 'campanha':
+        return projeto.campanha;
+      case 'data':
+        final data = coleta?.dataHora ?? ponto.dataHora;
+        return dateFormat.format(data);
+      case 'periodo':
+        return projeto.periodo;
+      case 'municipio':
+        return projeto.municipio;
+      case 'latitude':
+        return ponto.latitude != 0.0 ? "${ponto.latitude.toStringAsFixed(6)}°S" : '';
+      case 'longitude':
+        return ponto.longitude != 0.0 ? "${ponto.longitude.toStringAsFixed(6)}°W" : '';
+      case 'ponto':
+        return ponto.nome;
+      case 'ordem':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'familia':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'especie':
+        return coleta?.especie ?? '';
+      case 'nomePopular':
+        return coleta?.nomePopular ?? '';
+      case 'quantidade':
+        return coleta?.quantidade ?? 0;
+      case 'metodologia':
+        return coleta?.metodologia ?? '';
+      case 'habitat':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'endemismo':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'iucn':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'mma2022':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'mma2014':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'cites':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'importanciaEcologica':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'especiesCinegeticas':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'outroInteresse':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'guilda':
+      case 'guildaTrofica':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'migracao':
+        return ''; // Campo científico opcional - implementar quando necessário
+      case 'observacoes':
+        String observacoes = '';
+        if (ponto.observacoes != null && ponto.observacoes!.isNotEmpty) {
+          observacoes += 'Ponto: ${ponto.observacoes}';
+        }
+        if (coleta?.observacoes != null && coleta!.observacoes!.isNotEmpty) {
+          if (observacoes.isNotEmpty) observacoes += ' | ';
+          observacoes += 'Coleta: ${coleta.observacoes}';
+        }
+        return observacoes;
+      case 'tecnicoResponsavel':
+        return usuario.nome;
+      default:
+        print('Campo não mapeado: $campo');
+        return '';
+    }
+  }
+
+  static String _generateFileName(Projeto projeto, ExcelTemplate template) {
     final DateFormat fileFormat = DateFormat('yyyy.MM.dd');
     final data = fileFormat.format(DateTime.now());
     final grupo = projeto.grupoBiologico.code.toLowerCase();
-    return '${grupo}_${projeto.municipio.replaceAll(' ', '_')}_${projeto.campanha}_$data.xlsx';
+    final templateName = template.nome.replaceAll(' ', '_').toLowerCase();
+    return '${grupo}_${projeto.municipio.replaceAll(' ', '_')}_${projeto.campanha}_${templateName}_$data.xlsx';
   }
 
   static Future<void> shareFile(String filePath) async {
