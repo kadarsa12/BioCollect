@@ -1,8 +1,9 @@
-// screens/settings_screen.dart (NOVA TELA DE CONFIGURAÇÕES)
+// screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/excel_templates_screen.dart';
+import '../services/api_service.dart'; // <-- ajuste o caminho se necessário
 
 class SettingsScreen extends StatelessWidget {
   @override
@@ -12,7 +13,7 @@ class SettingsScreen extends StatelessWidget {
         title: Text('Configurações'),
         backgroundColor: Color(0xFF8D6E63),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false, // Remove a seta de voltar
+        automaticallyImplyLeading: false,
       ),
       body: ListView(
         padding: EdgeInsets.all(16),
@@ -104,6 +105,41 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
 
+          // ===== NOVA SEÇÃO: Sincronização (após Dados e Backup) =====
+          SizedBox(height: 16),
+          _buildSectionCard(
+            context,
+            'Sincronização',
+            Icons.sync,
+            [
+              _buildSettingsTile(
+                context,
+                'Testar Conexão',
+                'Verificar conectividade com servidor',
+                Icons.wifi_tethering,
+                    () => _testarConexao(context),
+                trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              _buildSettingsTile(
+                context,
+                'Sincronizar Projeto',
+                'Enviar dados para análise',
+                Icons.cloud_sync,
+                    () => _sincronizarProjeto(context),
+                trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              _buildSettingsTile(
+                context,
+                'Ver Resultados',
+                'Índices e gráficos gerados',
+                Icons.analytics,
+                    () => _verResultados(context),
+                trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+            ],
+          ),
+          // ===== FIM NOVA SEÇÃO =====
+
           SizedBox(height: 16),
 
           // Seção: Sobre
@@ -153,7 +189,6 @@ class SettingsScreen extends StatelessWidget {
       elevation: 2,
       child: Column(
         children: [
-          // Cabeçalho da seção
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -178,7 +213,6 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          // Itens da seção
           ...children,
         ],
       ),
@@ -202,14 +236,8 @@ class SettingsScreen extends StatelessWidget {
         ),
         child: Icon(icon, color: Color(0xFF8D6E63), size: 20),
       ),
-      title: Text(
-        title,
-        style: TextStyle(fontWeight: FontWeight.w500),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-      ),
+      title: Text(title, style: TextStyle(fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       trailing: trailing,
       onTap: onTap,
     );
@@ -218,9 +246,7 @@ class SettingsScreen extends StatelessWidget {
   void _openTemplatesScreen(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ExcelTemplatesScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => ExcelTemplatesScreen()),
     );
   }
 
@@ -245,10 +271,10 @@ class SettingsScreen extends StatelessWidget {
             _buildInfoRow('Nome', user?.nome ?? 'N/A'),
             SizedBox(height: 12),
             _buildInfoRow(
-                'Criado em',
-                user != null
-                    ? '${user.dataCriacao.day}/${user.dataCriacao.month}/${user.dataCriacao.year}'
-                    : 'N/A'
+              'Criado em',
+              user != null
+                  ? '${user.dataCriacao.day}/${user.dataCriacao.month}/${user.dataCriacao.year}'
+                  : 'N/A',
             ),
           ],
         ),
@@ -256,9 +282,7 @@ class SettingsScreen extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Fechar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Color(0xFF8D6E63),
-            ),
+            style: TextButton.styleFrom(foregroundColor: Color(0xFF8D6E63)),
           ),
         ],
       ),
@@ -271,14 +295,9 @@ class SettingsScreen extends StatelessWidget {
       children: [
         Text(
           '$label: ',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF8D6E63),
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF8D6E63)),
         ),
-        Expanded(
-          child: Text(value),
-        ),
+        Expanded(child: Text(value)),
       ],
     );
   }
@@ -298,17 +317,14 @@ class SettingsScreen extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          children: const [
             Text('Aplicativo para coleta de dados biológicos'),
             SizedBox(height: 8),
             Text('Versão: 1.0.0'),
             SizedBox(height: 8),
             Text('Desenvolvido para pesquisadores e biólogos'),
             SizedBox(height: 16),
-            Text(
-              'Funcionalidades:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            Text('Funcionalidades:', style: TextStyle(fontWeight: FontWeight.bold)),
             SizedBox(height: 4),
             Text('• Criação de projetos por grupo biológico'),
             Text('• Coleta de dados com GPS'),
@@ -320,9 +336,7 @@ class SettingsScreen extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Fechar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Color(0xFF8D6E63),
-            ),
+            style: TextButton.styleFrom(foregroundColor: Color(0xFF8D6E63)),
           ),
         ],
       ),
@@ -355,10 +369,7 @@ class SettingsScreen extends StatelessWidget {
           'Isso irá limpar arquivos temporários e cache do aplicativo. Seus projetos não serão afetados.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -375,5 +386,78 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // =======================
+  // NOVOS MÉTODOS
+  // =======================
+  Future<void> _testarConexao(BuildContext context) async {
+    // Loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: const [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Testando conexão...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final conectado = await ApiService.testarConexao();
+      Navigator.pop(context); // fecha loading
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                conectado ? Icons.check_circle : Icons.error,
+                color: conectado ? Colors.green : Colors.red,
+              ),
+              SizedBox(width: 8),
+              Text(conectado ? 'Conexão OK' : 'Sem Conexão'),
+            ],
+          ),
+          content: Text(conectado
+              ? 'Servidor Python conectado com sucesso!'
+              : 'Não foi possível conectar ao servidor.\nVerifique se está rodando em 192.168.18.5:8000'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('OK')),
+          ],
+        ),
+      );
+    } catch (e) {
+      Navigator.pop(context); // fecha loading
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: const [
+              Icon(Icons.error, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Erro na Conexão'),
+            ],
+          ),
+          content: Text('Ocorreu um erro ao testar a conexão:\n$e'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Fechar')),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _sincronizarProjeto(BuildContext context) {
+    _showComingSoon(context);
+  }
+
+  void _verResultados(BuildContext context) {
+    _showComingSoon(context);
   }
 }
