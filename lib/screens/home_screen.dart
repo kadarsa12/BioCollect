@@ -4,7 +4,7 @@ import '../providers/user_provider.dart';
 import '../providers/project_provider.dart';
 import '../models/projeto.dart';
 import '../utils/database_helper.dart';
-import '../models/enums.dart'; // Para StatusProjeto
+import '../models/enums.dart';
 import 'create_project_screen.dart';
 import 'project_detail_screen.dart';
 
@@ -14,8 +14,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  StatusProjeto? _filtroStatus; // null = todos, StatusProjeto.aberto = só abertos, etc.
-  bool _mostrarFechados = true; // Controle rápido
+  StatusProjeto? _filtroStatus;
+  bool _mostrarFechados = true;
 
   @override
   void initState() {
@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               setState(() {
                 _mostrarFechados = !_mostrarFechados;
-                _filtroStatus = null; // Reset filtro específico
+                _filtroStatus = null;
               });
             },
             tooltip: _mostrarFechados ? 'Ocultar fechados' : 'Mostrar fechados',
@@ -79,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelected: (status) {
               setState(() {
                 _filtroStatus = status;
-                if (status != null) _mostrarFechados = true; // Reset filtro rápido
+                if (status != null) _mostrarFechados = true;
               });
             },
             itemBuilder: (context) => [
@@ -155,16 +155,13 @@ class _HomeScreenState extends State<HomeScreen> {
           final todosProjetos = projectProvider.projetos;
           final projetosFiltrados = _getFilteredProjects(todosProjetos);
 
-          // Contadores para estatísticas
           final totalAbertos = todosProjetos.where((p) => p.status == StatusProjeto.aberto).length;
           final totalFechados = todosProjetos.where((p) => p.status == StatusProjeto.fechado).length;
 
           return Column(
             children: [
-              // Header com estatísticas e filtros
               if (todosProjetos.isNotEmpty) _buildStatsHeader(totalAbertos, totalFechados, projetosFiltrados.length),
 
-              // Lista de projetos
               Expanded(
                 child: projetosFiltrados.isEmpty
                     ? _buildEmptyState(todosProjetos.isEmpty)
@@ -210,39 +207,22 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Column(
         children: [
-          // Estatísticas
           Row(
             children: [
               Expanded(
-                child: _buildStatItem(
-                  'Abertos',
-                  abertos.toString(),
-                  Icons.lock_open,
-                  Colors.green,
-                ),
+                child: _buildStatItem('Abertos', abertos.toString(), Icons.lock_open, Colors.green),
               ),
               Container(width: 1, height: 30, color: Colors.grey[300]),
               Expanded(
-                child: _buildStatItem(
-                  'Fechados',
-                  fechados.toString(),
-                  Icons.lock,
-                  Colors.grey,
-                ),
+                child: _buildStatItem('Fechados', fechados.toString(), Icons.lock, Colors.grey),
               ),
               Container(width: 1, height: 30, color: Colors.grey[300]),
               Expanded(
-                child: _buildStatItem(
-                  'Total',
-                  (abertos + fechados).toString(),
-                  Icons.folder,
-                  Color(0xFF8D6E63),
-                ),
+                child: _buildStatItem('Total', (abertos + fechados).toString(), Icons.folder, Color(0xFF8D6E63)),
               ),
             ],
           ),
 
-          // Filtro ativo
           if (_filtroStatus != null || !_mostrarFechados) ...[
             SizedBox(height: 12),
             Container(
@@ -269,10 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   SizedBox(width: 4),
                   Text(
                     '($filtrados)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF8D6E63),
-                    ),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF8D6E63)),
                   ),
                   SizedBox(width: 8),
                   GestureDetector(
@@ -300,18 +277,11 @@ class _HomeScreenState extends State<HomeScreen> {
         SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
       ],
     );
@@ -319,80 +289,54 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildEmptyState(bool isCompletelyEmpty) {
     if (isCompletelyEmpty) {
-      // Sem projetos
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.assignment,
-              size: 80,
-              color: Colors.grey,
-            ),
+            Icon(Icons.assignment, size: 80, color: Colors.grey),
             SizedBox(height: 16),
             Text(
               'Nenhum projeto criado',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
             ),
             SizedBox(height: 8),
             Text(
               'Toque no + no canto superior para criar',
-              style: TextStyle(
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(color: Colors.grey[500]),
             ),
             SizedBox(height: 24),
-            Container(
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.arrow_upward,
+            Column(
+              children: [
+                Icon(Icons.arrow_upward, color: Color(0xFF8D6E63), size: 32),
+                Text(
+                  'Clique aqui',
+                  style: TextStyle(
                     color: Color(0xFF8D6E63),
-                    size: 32,
+                    fontWeight: FontWeight.bold,
                   ),
-                  Text(
-                    'Clique aqui',
-                    style: TextStyle(
-                      color: Color(0xFF8D6E63),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
       );
     } else {
-      // Tem projetos, mas filtro não mostra nenhum
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.filter_alt_off,
-              size: 80,
-              color: Colors.grey,
-            ),
+            Icon(Icons.filter_alt_off, size: 80, color: Colors.grey),
             SizedBox(height: 16),
             Text(
               'Nenhum projeto encontrado',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
             ),
             SizedBox(height: 8),
             Text(
               _filtroStatus != null
                   ? 'Não há projetos ${_filtroStatus!.value.toLowerCase()}'
                   : 'Todos os projetos estão fechados',
-              style: TextStyle(
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(color: Colors.grey[500]),
             ),
             SizedBox(height: 16),
             ElevatedButton.icon(
@@ -431,18 +375,14 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isAberto
-                ? Color(0xFF8D6E63).withOpacity(0.08)
-                : Colors.grey.withOpacity(0.1),
+            color: isAberto ? Color(0xFF8D6E63).withOpacity(0.08) : Colors.grey.withOpacity(0.1),
             blurRadius: 12,
             spreadRadius: 0,
             offset: Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: isAberto
-              ? Color(0xFFD7CCC8).withOpacity(0.3)
-              : Colors.grey.shade300,
+          color: isAberto ? Color(0xFFD7CCC8).withOpacity(0.3) : Colors.grey.shade300,
           width: 1,
         ),
       ),
@@ -462,38 +402,28 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header com ícone, título e status
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Ícone do grupo biológico
+                    // Ícone do projeto
                     Container(
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: isAberto
-                              ? [
-                            _getGroupColor(projeto.grupoBiologico),
-                            _getGroupColor(projeto.grupoBiologico).withOpacity(0.8),
-                          ]
+                              ? [Color(0xFF8D6E63), Color(0xFF8D6E63).withOpacity(0.8)]
                               : [Colors.grey.shade400, Colors.grey.shade500],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: isAberto
-                                ? _getGroupColor(projeto.grupoBiologico).withOpacity(0.3)
-                                : Colors.grey.withOpacity(0.2),
+                            color: isAberto ? Color(0xFF8D6E63).withOpacity(0.3) : Colors.grey.withOpacity(0.2),
                             blurRadius: 8,
                             offset: Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: Icon(
-                        _getIconForGroup(projeto.grupoBiologico),
-                        color: Colors.white,
-                        size: 24,
-                      ),
+                      child: Icon(Icons.folder, color: Colors.white, size: 24),
                     ),
 
                     SizedBox(width: 16),
@@ -507,7 +437,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  projeto.nome,
+                                  projeto.nome ?? 'Sem nome',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 18,
@@ -523,9 +453,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Container(
                                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: isAberto
-                                      ? Colors.green.withOpacity(0.1)
-                                      : Colors.grey.withOpacity(0.1),
+                                  color: isAberto ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -551,27 +479,27 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
 
-                          SizedBox(height: 4),
+                          SizedBox(height: 8),
 
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isAberto
-                                  ? _getGroupColor(projeto.grupoBiologico).withOpacity(0.1)
-                                  : Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
+                          // Município
+                          if (projeto.municipio != null && projeto.municipio!.isNotEmpty)
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_city,
+                                  size: 14,
+                                  color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  projeto.municipio!,
+                                  style: TextStyle(
+                                    color: isAberto ? Color(0xFF5D4037) : Colors.grey.shade600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              projeto.grupoBiologico.displayName,
-                              style: TextStyle(
-                                color: isAberto
-                                    ? _getGroupColor(projeto.grupoBiologico)
-                                    : Colors.grey.shade600,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -592,33 +520,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
 
-                SizedBox(height: 16),
-
-                // Informações detalhadas
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isAberto ? Color(0xFFFAF8F6) : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isAberto ? Color(0xFFEFEBE9) : Colors.grey.shade300,
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildInfoRow(Icons.campaign, 'Campanha', projeto.campanha, isAberto),
-                      SizedBox(height: 8),
-                      _buildInfoRow(Icons.water_drop, 'Período', projeto.periodo, isAberto),
-                      SizedBox(height: 8),
-                      _buildInfoRow(Icons.location_city, 'Município', projeto.municipio, isAberto),
-                    ],
-                  ),
-                ),
-
                 SizedBox(height: 12),
 
-                // Footer com data e status adicional
+                // Footer com data
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -643,18 +547,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (!isAberto && projeto.dataFechamento != null)
                       Row(
                         children: [
-                          Icon(
-                            Icons.lock,
-                            size: 12,
-                            color: Colors.grey.shade500,
-                          ),
+                          Icon(Icons.lock, size: 12, color: Colors.grey.shade500),
                           SizedBox(width: 4),
                           Text(
                             'Fechado em ${projeto.dataFechamento!.day}/${projeto.dataFechamento!.month}/${projeto.dataFechamento!.year}',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 10,
-                            ),
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
                           ),
                         ],
                       )
@@ -662,13 +559,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isAberto
-                              ? Color(0xFF8D6E63).withOpacity(0.1)
-                              : Colors.grey.withOpacity(0.1),
+                          color: isAberto ? Color(0xFF8D6E63).withOpacity(0.1) : Colors.grey.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'Toque para abrir',
+                          'Toque para ver grupos',
                           style: TextStyle(
                             color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
                             fontSize: 10,
@@ -684,89 +579,5 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value, bool isAberto) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: isAberto ? Color(0xFF8D6E63) : Colors.grey.shade500,
-        ),
-        SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: TextStyle(
-            color: isAberto ? Color(0xFF5D4037) : Colors.grey.shade600,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              color: isAberto ? Color(0xFF3E2723) : Colors.grey.shade600,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _getGroupColor(grupoBiologico) {
-    switch (grupoBiologico.code) {
-      case 'ICTIOFAUNA':
-        return Color(0xFF1976D2);
-      case 'AVIFAUNA':
-        return Color(0xFF388E3C);
-      case 'HERPETOFAUNA':
-        return Color(0xFF8D6E63);
-      case 'REPTEIS':
-        return Color(0xFF6D4C41);
-      case 'ANFIBIOS':
-        return Color(0xFF00796B);
-      case 'MASTOFAUNA':
-        return Color(0xFF7B1FA2);
-      case 'ENTOMOFAUNA':
-        return Color(0xFFFF8F00);
-      case 'MACROINVERTEBRADOS':
-        return Color(0xFF455A64);
-      case 'FLORA':
-        return Color(0xFF689F38);
-      case 'ZOOPLANCTON':
-        return Color(0xFF0277BD);
-      case 'FITOPLANCTON':
-        return Color(0xFF558B2F);
-      default:
-        return Color(0xFF8D6E63);
-    }
-  }
-
-  IconData _getIconForGroup(grupoBiologico) {
-    switch (grupoBiologico.code) {
-      case 'ICTIOFAUNA':
-        return Icons.waves;
-      case 'AVIFAUNA':
-        return Icons.flutter_dash;
-      case 'HERPETOFAUNA':
-        return Icons.water_drop;
-      case 'MASTOFAUNA':
-        return Icons.pets;
-      case 'ENTOMOFAUNA':
-        return Icons.bug_report;
-      case 'MACROINVERTEBRADOS':
-        return Icons.scatter_plot;
-      case 'FLORA':
-        return Icons.local_florist;
-      case 'ZOOPLANCTON':
-        return Icons.bubble_chart;
-      case 'FITOPLANCTON':
-        return Icons.grain;
-      default:
-        return Icons.science;
-    }
   }
 }

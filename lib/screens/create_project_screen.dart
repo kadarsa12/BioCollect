@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/user_provider.dart';
-import '../models/enums.dart';
 
 class CreateProjectScreen extends StatefulWidget {
   @override
@@ -12,167 +11,218 @@ class CreateProjectScreen extends StatefulWidget {
 class _CreateProjectScreenState extends State<CreateProjectScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nomeController = TextEditingController();
-  final _campanhaController = TextEditingController();
   final _municipioController = TextEditingController();
 
-  GrupoBiologico? _grupoBiologico;
-  String? _periodo;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF8F6F4),
       appBar: AppBar(
         title: Text('Novo Projeto'),
+        backgroundColor: Color(0xFF8D6E63),
+        foregroundColor: Colors.white,
+        elevation: 2,
       ),
       body: Form(
         key: _formKey,
-        child: Padding(
+        child: ListView(
           padding: EdgeInsets.all(16),
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _nomeController,
-                decoration: InputDecoration(
-                  labelText: 'Nome do Projeto',
-                  border: OutlineInputBorder(),
+          children: [
+            // Card de informações
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Color(0xFF8D6E63).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Color(0xFF8D6E63).withOpacity(0.3),
+                  width: 1,
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Digite o nome do projeto';
-                  }
-                  return null;
-                },
               ),
-              SizedBox(height: 16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Color(0xFF8D6E63),
+                    size: 24,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Após criar o projeto, você poderá adicionar grupos de fauna e campanhas',
+                      style: TextStyle(
+                        color: Color(0xFF5D4037),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-              DropdownButtonFormField<GrupoBiologico>(
-                decoration: InputDecoration(
-                  labelText: 'Grupo Biológico',
-                  border: OutlineInputBorder(),
-                ),
-                value: _grupoBiologico,
-                items: GrupoBiologico.values.map((grupo) {
-                  return DropdownMenuItem(
-                    value: grupo,
-                    child: Text(grupo.displayName),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _grupoBiologico = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Selecione o grupo biológico';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
+            SizedBox(height: 24),
 
-              TextFormField(
-                controller: _campanhaController,
-                decoration: InputDecoration(
-                  labelText: 'Campanha',
-                  border: OutlineInputBorder(),
+            // Nome do Projeto
+            TextFormField(
+              controller: _nomeController,
+              decoration: InputDecoration(
+                labelText: 'Nome do Projeto',
+                hintText: 'Ex: UHE Rio Verde',
+                prefixIcon: Icon(Icons.folder, color: Color(0xFF8D6E63)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Digite a campanha';
-                  }
-                  return null;
-                },
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Color(0xFF8D6E63), width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
               ),
-              SizedBox(height: 16),
+              textCapitalization: TextCapitalization.words,
+            ),
 
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Período',
-                  border: OutlineInputBorder(),
-                ),
-                value: _periodo,
-                items: ['Seca', 'Cheia'].map((periodo) {
-                  return DropdownMenuItem(
-                    value: periodo,
-                    child: Text(periodo),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _periodo = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Selecione o período';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
+            SizedBox(height: 16),
 
-              TextFormField(
-                controller: _municipioController,
-                decoration: InputDecoration(
-                  labelText: 'Município',
-                  border: OutlineInputBorder(),
+            // Município
+            TextFormField(
+              controller: _municipioController,
+              decoration: InputDecoration(
+                labelText: 'Município',
+                hintText: 'Ex: São Paulo',
+                prefixIcon: Icon(Icons.location_city, color: Color(0xFF8D6E63)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Digite o município';
-                  }
-                  return null;
-                },
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Color(0xFF8D6E63), width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
               ),
-              SizedBox(height: 24),
+              textCapitalization: TextCapitalization.words,
+            ),
 
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _criarProjeto,
-                  child: Text('Criar Projeto'),
+            SizedBox(height: 32),
+
+            // Botão Criar
+            SizedBox(
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _criarProjeto,
+                icon: _isLoading
+                    ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+                    : Icon(Icons.check, size: 24),
+                label: Text(
+                  _isLoading ? 'Criando...' : 'Criar Projeto',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF8D6E63),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
                 ),
               ),
-            ],
-          ),
+            ),
+
+            SizedBox(height: 16),
+
+            // Texto de ajuda
+            Center(
+              child: Text(
+                'Nenhum campo é obrigatório',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Future<void> _criarProjeto() async {
-    if (_formKey.currentState!.validate()) {
+    setState(() => _isLoading = true);
+
+    try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
 
       final userId = userProvider.currentUser?.id;
-      if (userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: usuário não encontrado')),
-        );
-        return;
-      }
 
       final id = await projectProvider.createProjeto(
-        nome: _nomeController.text,
-        grupoBiologico: _grupoBiologico!,
-        campanha: _campanhaController.text,
-        periodo: _periodo!,
-        municipio: _municipioController.text,
+        nome: _nomeController.text.isEmpty ? null : _nomeController.text,
+        municipio: _municipioController.text.isEmpty ? null : _municipioController.text,
         usuarioId: userId,
       );
 
-      if (id != null) {
-        Navigator.of(context).pop();
+      if (id != null && mounted) {
+        Navigator.of(context).pop(true); // Retorna true indicando sucesso
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Projeto criado com sucesso!')),
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Projeto criado! Adicione grupos de fauna agora.'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
         );
-      } else {
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao criar projeto')),
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Erro ao criar projeto'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
         );
+      }
+    } catch (e) {
+      print('Erro ao criar projeto: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -180,7 +230,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   @override
   void dispose() {
     _nomeController.dispose();
-    _campanhaController.dispose();
     _municipioController.dispose();
     super.dispose();
   }

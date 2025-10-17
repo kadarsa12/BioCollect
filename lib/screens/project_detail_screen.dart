@@ -1,19 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/projeto.dart';
-import '../models/ponto_coleta.dart';
+import '../models/grupo_fauna.dart';
 import '../providers/project_provider.dart';
-import '../providers/user_provider.dart';
-import '../utils/excel_exporter.dart';
 import '../utils/database_helper.dart';
-import '../models/enums.dart'; // Para StatusProjeto
-import 'create_ponto_screen.dart';
-import 'ponto_detail_screen.dart';
-import 'project_map_screen.dart';
-import 'manage_metodologias_screen.dart';
-import '../widgets/template_selection_dialog.dart';
-import '../models/excel_template.dart';
-import 'project_stats_screen.dart';
+import '../models/enums.dart';
+import 'create_grupo_fauna_screen.dart';
+import 'campanha_list_screen.dart'; // VAMOS CRIAR
 
 class ProjectDetailScreen extends StatefulWidget {
   final Projeto projeto;
@@ -26,17 +19,16 @@ class ProjectDetailScreen extends StatefulWidget {
 
 class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     with SingleTickerProviderStateMixin {
-  bool _isExporting = false;
   bool _isDeleting = false;
-  bool _isUpdatingStatus = false; // NOVO
+  bool _isUpdatingStatus = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  late Projeto _projeto; // NOVO - para atualizar o status localmente
+  late Projeto _projeto;
 
   @override
   void initState() {
     super.initState();
-    _projeto = widget.projeto; // NOVO
+    _projeto = widget.projeto;
     _animationController = AnimationController(
       duration: Duration(milliseconds: 600),
       vsync: this,
@@ -44,7 +36,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-    _loadPontos();
+    _loadGrupos();
     _animationController.forward();
   }
 
@@ -54,9 +46,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     super.dispose();
   }
 
-  Future<void> _loadPontos() async {
+  Future<void> _loadGrupos() async {
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-    await projectProvider.loadPontosByProjeto(_projeto.id!);
+    await projectProvider.loadGruposByProjeto(_projeto.id!);
   }
 
   @override
@@ -67,9 +59,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       backgroundColor: Color(0xFFF8F6F4),
       body: CustomScrollView(
         slivers: [
-          // AppBar moderna com gradiente baseado no status
+          // AppBar
           SliverAppBar(
-            expandedHeight: 140, // AUMENTADO para caber o status
+            expandedHeight: 140,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -78,20 +70,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: isAberto
-                        ? [Colors.green, Colors.green.shade700]
+                        ? [Color(0xFF8D6E63), Color(0xFF6D4C41)]
                         : [Colors.grey.shade600, Colors.grey.shade800],
-                  ),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.1),
-                      ],
-                    ),
                   ),
                 ),
               ),
@@ -100,22 +80,22 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _projeto.nome,
+                    _projeto.nome ?? 'Sem nome',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
                   ),
-                  Text(
-                    _projeto.grupoBiologico.displayName,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                  if (_projeto.municipio != null && _projeto.municipio!.isNotEmpty)
+                    Text(
+                      _projeto.municipio!,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  // NOVO - Badge de status
                   SizedBox(height: 4),
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -151,7 +131,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
               titlePadding: EdgeInsets.only(left: 16, bottom: 16),
             ),
             actions: [
-              // NOVO - Botão de status rápido
+              // Botão de status
               if (!_isUpdatingStatus)
                 IconButton(
                   onPressed: () => _toggleStatusProjeto(),
@@ -174,26 +154,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                   ),
                 ),
 
-              // Menu de ações expandido
+              // Menu
               PopupMenuButton<String>(
                 onSelected: (value) => _handleMenuAction(value),
                 icon: Icon(Icons.more_vert, color: Colors.white),
                 itemBuilder: (context) => [
-                  // NOVA SEÇÃO - Status
                   PopupMenuItem(
                     value: 'toggle_status',
                     child: Row(
                       children: [
-                        _isUpdatingStatus
-                            ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: isAberto ? Colors.red : Colors.green,
-                          ),
-                        )
-                            : Icon(
+                        Icon(
                           isAberto ? Icons.lock : Icons.lock_open,
                           color: isAberto ? Colors.red : Colors.green,
                           size: 20,
@@ -206,68 +176,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuDivider(),
-
-                  // Outras opções
-                  PopupMenuItem(
-                    value: 'metodologias',
-                    enabled: isAberto, // SÓ DISPONÍVEL SE ABERTO
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.science,
-                          color: isAberto ? Color(0xFF8D6E63) : Colors.grey,
-                          size: 20,
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          'Gerenciar Métodos',
-                          style: TextStyle(
-                            color: isAberto ? null : Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'mapa',
-                    child: Row(
-                      children: [
-                        Icon(Icons.map, color: Color(0xFF8D6E63), size: 20),
-                        SizedBox(width: 12),
-                        Text('Ver Mapa'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'stats',
-                    child: Row(
-                      children: [
-                        Icon(Icons.bar_chart, color: Color(0xFF8D6E63), size: 20),
-                        SizedBox(width: 12),
-                        Text('Estatísticas'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'export',
-                    child: Row(
-                      children: [
-                        _isExporting
-                            ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFF8D6E63),
-                          ),
-                        )
-                            : Icon(Icons.table_chart, color: Color(0xFF8D6E63), size: 20),
-                        SizedBox(width: 12),
-                        Text(_isExporting ? 'Exportando...' : 'Exportar Excel'),
                       ],
                     ),
                   ),
@@ -309,26 +217,21 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
             ],
           ),
 
-          // Conteúdo principal
+          // Conteúdo
           SliverToBoxAdapter(
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Column(
                 children: [
-                  // NOVO - Card de status se fechado
                   if (!isAberto) _buildClosedProjectCard(),
-
-                  // Card de estatísticas
                   _buildStatsCard(),
-
-                  // Header da lista de pontos
                   _buildSectionHeader(),
                 ],
               ),
             ),
           ),
 
-          // Lista de pontos
+          // Lista de grupos
           Consumer<ProjectProvider>(
             builder: (context, projectProvider, child) {
               if (projectProvider.isLoading) {
@@ -344,7 +247,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                 );
               }
 
-              if (projectProvider.pontosColeta.isEmpty) {
+              if (projectProvider.gruposFauna.isEmpty) {
                 return SliverToBoxAdapter(
                   child: _buildEmptyState(),
                 );
@@ -353,25 +256,22 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                    final ponto = projectProvider.pontosColeta[index];
+                    final grupo = projectProvider.gruposFauna[index];
                     return FadeTransition(
                       opacity: _fadeAnimation,
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: _buildPontoCard(ponto, index),
+                        child: _buildGrupoCard(grupo),
                       ),
                     );
                   },
-                  childCount: projectProvider.pontosColeta.length,
+                  childCount: projectProvider.gruposFauna.length,
                 ),
               );
             },
           ),
 
-          // Espaçamento para o FAB
-          SliverToBoxAdapter(
-            child: SizedBox(height: 80),
-          ),
+          SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
       floatingActionButton: isAberto
@@ -379,20 +279,19 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => CreatePontoScreen(projeto: _projeto),
+              builder: (_) => CreateGrupoFaunaScreen(projeto: _projeto),
             ),
-          ).then((_) => _loadPontos());
+          ).then((_) => _loadGrupos());
         },
-        label: Text('Novo Ponto'),
-        icon: Icon(Icons.add_location),
-        backgroundColor: Colors.green,
+        label: Text('Novo Grupo'),
+        icon: Icon(Icons.add),
+        backgroundColor: Color(0xFF8D6E63),
         foregroundColor: Colors.white,
       )
-          : null, // SEM FAB SE PROJETO FECHADO
+          : null,
     );
   }
 
-  // NOVO - Card para projeto fechado
   Widget _buildClosedProjectCard() {
     return Container(
       margin: EdgeInsets.all(16),
@@ -410,11 +309,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
               color: Colors.grey.shade300,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.lock,
-              color: Colors.grey.shade600,
-              size: 20,
-            ),
+            child: Icon(Icons.lock, color: Colors.grey.shade600, size: 20),
           ),
           SizedBox(width: 12),
           Expanded(
@@ -429,7 +324,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                   ),
                 ),
                 Text(
-                  'Não é possível adicionar novos pontos ou modificar dados',
+                  'Não é possível adicionar novos grupos ou campanhas',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade600,
@@ -463,22 +358,15 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     );
   }
 
-  // NOVA FUNÇÃO - Toggle status do projeto
   Future<void> _toggleStatusProjeto() async {
-    setState(() {
-      _isUpdatingStatus = true;
-    });
+    setState(() => _isUpdatingStatus = true);
 
     try {
       final db = await DatabaseHelper.instance.database;
-
       final novoStatus = _projeto.status == StatusProjeto.aberto
           ? StatusProjeto.fechado
           : StatusProjeto.aberto;
-
-      final dataFechamento = novoStatus == StatusProjeto.fechado
-          ? DateTime.now()
-          : null;
+      final dataFechamento = novoStatus == StatusProjeto.fechado ? DateTime.now() : null;
 
       await db.update(
         'projetos',
@@ -490,55 +378,46 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         whereArgs: [_projeto.id],
       );
 
-      // Atualizar objeto local
       setState(() {
-        _projeto = Projeto(
-          id: _projeto.id,
-          nome: _projeto.nome,
-          grupoBiologico: _projeto.grupoBiologico,
-          campanha: _projeto.campanha,
-          periodo: _projeto.periodo,
-          municipio: _projeto.municipio,
-          usuarioId: _projeto.usuarioId,
-          dataInicio: _projeto.dataInicio,
+        _projeto = _projeto.copyWith(
           status: novoStatus,
           dataFechamento: dataFechamento,
         );
       });
 
-      // Recarregar lista de projetos
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
       await projectProvider.loadProjetos();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                novoStatus == StatusProjeto.fechado ? Icons.lock : Icons.lock_open,
-                color: Colors.white,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Projeto ${novoStatus == StatusProjeto.fechado ? "fechado" : "reaberto"}',
-              ),
-            ],
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  novoStatus == StatusProjeto.fechado ? Icons.lock : Icons.lock_open,
+                  color: Colors.white,
+                ),
+                SizedBox(width: 8),
+                Text('Projeto ${novoStatus == StatusProjeto.fechado ? "fechado" : "reaberto"}'),
+              ],
+            ),
+            backgroundColor: novoStatus == StatusProjeto.fechado ? Colors.orange : Colors.green,
           ),
-          backgroundColor: novoStatus == StatusProjeto.fechado ? Colors.orange : Colors.green,
-        ),
-      );
-
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao alterar status: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao alterar status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isUpdatingStatus = false;
-      });
+      if (mounted) {
+        setState(() => _isUpdatingStatus = false);
+      }
     }
   }
 
@@ -559,7 +438,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       ),
       child: Consumer<ProjectProvider>(
         builder: (context, projectProvider, child) {
-          final totalPontos = projectProvider.pontosColeta.length;
+          final totalGrupos = projectProvider.gruposFauna.length;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,11 +451,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                       color: Color(0xFF8D6E63).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      Icons.analytics,
-                      color: Color(0xFF8D6E63),
-                      size: 20,
-                    ),
+                    child: Icon(Icons.analytics, color: Color(0xFF8D6E63), size: 20),
                   ),
                   SizedBox(width: 12),
                   Text(
@@ -594,17 +469,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                 children: [
                   Expanded(
                     child: _buildStatItem(
-                      'Total de Pontos',
-                      totalPontos.toString(),
-                      Icons.location_on,
+                      'Grupos',
+                      totalGrupos.toString(),
+                      Icons.category,
                       Color(0xFF8D6E63),
                     ),
                   ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: Colors.grey[300],
-                  ),
+                  Container(width: 1, height: 40, color: Colors.grey[300]),
                   Expanded(
                     child: _buildStatItem(
                       'Status',
@@ -613,15 +484,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
                       _projeto.status == StatusProjeto.aberto ? Colors.green : Colors.grey,
                     ),
                   ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: Colors.grey[300],
-                  ),
+                  Container(width: 1, height: 40, color: Colors.grey[300]),
                   Expanded(
                     child: _buildStatItem(
-                      'Criado em',
-                      '${_projeto.dataInicio.day}/${_projeto.dataInicio.month}/${_projeto.dataInicio.year}',
+                      'Criado',
+                      '${_projeto.dataInicio.day}/${_projeto.dataInicio.month}',
                       Icons.calendar_today,
                       Color(0xFF8D6E63),
                     ),
@@ -642,19 +509,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
         SizedBox(height: 8),
         Text(
           value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
           textAlign: TextAlign.center,
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           textAlign: TextAlign.center,
         ),
       ],
@@ -666,14 +526,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
       margin: EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Row(
         children: [
-          Icon(
-            Icons.location_on,
-            color: Color(0xFF8D6E63),
-            size: 20,
-          ),
+          Icon(Icons.category, color: Color(0xFF8D6E63), size: 20),
           SizedBox(width: 8),
           Text(
-            'Pontos de Coleta',
+            'Grupos de Fauna',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -699,15 +555,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
               color: Colors.grey[100],
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.location_on,
-              size: 60,
-              color: Colors.grey[400],
-            ),
+            child: Icon(Icons.category, size: 60, color: Colors.grey[400]),
           ),
           SizedBox(height: 20),
           Text(
-            'Nenhum ponto de coleta',
+            'Nenhum grupo de fauna',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -717,12 +569,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           SizedBox(height: 8),
           Text(
             isAberto
-                ? 'Toque em "Novo Ponto" para criar\no primeiro ponto de coleta'
-                : 'Este projeto está fechado.\nReabra para adicionar pontos.',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 14,
-            ),
+                ? 'Toque em "Novo Grupo" para adicionar\num grupo de fauna ao projeto'
+                : 'Este projeto está fechado.\nReabra para adicionar grupos.',
+            style: TextStyle(color: Colors.grey[500], fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],
@@ -730,7 +579,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     );
   }
 
-  Widget _buildPontoCard(PontoColeta ponto, int index) {
+  Widget _buildGrupoCard(GrupoFauna grupo) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -750,103 +599,58 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => PontoDetailScreen(
-                  ponto: ponto,
+                builder: (_) => CampanhaListScreen(
                   projeto: _projeto,
+                  grupoFauna: grupo,
                 ),
               ),
-            ).then((_) => _loadPontos());
+            ).then((_) => _loadGrupos());
           },
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Row(
               children: [
-                // Ícone de localização
                 Container(
-                  padding: EdgeInsets.all(8),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Color(0xFF8D6E63).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: _getColorForGrupo(grupo.tipo).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    Icons.location_on,
-                    color: Color(0xFF8D6E63),
-                    size: 20,
+                    _getIconForGrupo(grupo.tipo),
+                    color: _getColorForGrupo(grupo.tipo),
+                    size: 28,
                   ),
                 ),
                 SizedBox(width: 16),
-
-                // Conteúdo principal
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        ponto.nome,
+                        grupo.nomeExibicao,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           color: Color(0xFF5D4037),
                         ),
                       ),
-                      SizedBox(height: 8),
-
-                      // Coordenadas
-                      if (ponto.latitude != 0.0 && ponto.longitude != 0.0)
-                        Row(
-                          children: [
-                            Icon(Icons.my_location, size: 14, color: Colors.grey[600]),
-                            SizedBox(width: 4),
-                            Text(
-                              '${ponto.latitude.toStringAsFixed(6)}, ${ponto.longitude.toStringAsFixed(6)}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Row(
-                          children: [
-                            Icon(Icons.location_off, size: 14, color: Colors.orange),
-                            SizedBox(width: 4),
-                            Text(
-                              'Coordenadas não informadas',
-                              style: TextStyle(
-                                color: Colors.orange,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      SizedBox(height: 4),
-
-                      // Data
-                      Row(
-                        children: [
-                          Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
-                          SizedBox(width: 4),
-                          Text(
-                            '${ponto.dataHora.day}/${ponto.dataHora.month}/${ponto.dataHora.year}',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
+                      if (grupo.descricao != null && grupo.descricao!.isNotEmpty) ...[
+                        SizedBox(height: 4),
+                        Text(
+                          grupo.descricao!,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
                           ),
-                        ],
-                      ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
-
-                // Seta
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey[400],
-                ),
+                Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
               ],
             ),
           ),
@@ -855,36 +659,48 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     );
   }
 
+  Color _getColorForGrupo(GrupoBiologico? tipo) {
+    if (tipo == null) return Color(0xFF8D6E63);
+
+    switch (tipo.code) {
+      case 'ICTIOFAUNA':
+        return Color(0xFF1976D2);
+      case 'HERPETOFAUNA':
+        return Color(0xFF8D6E63);
+      case 'AVIFAUNA':
+        return Color(0xFF388E3C);
+      case 'MASTOFAUNA':
+        return Color(0xFF7B1FA2);
+      case 'ENTOMOFAUNA':
+        return Color(0xFFFF8F00);
+      default:
+        return Color(0xFF8D6E63);
+    }
+  }
+
+  IconData _getIconForGrupo(GrupoBiologico? tipo) {
+    if (tipo == null) return Icons.science;
+
+    switch (tipo.code) {
+      case 'ICTIOFAUNA':
+        return Icons.waves;
+      case 'HERPETOFAUNA':
+        return Icons.water_drop;
+      case 'AVIFAUNA':
+        return Icons.flutter_dash;
+      case 'MASTOFAUNA':
+        return Icons.pets;
+      case 'ENTOMOFAUNA':
+        return Icons.bug_report;
+      default:
+        return Icons.science;
+    }
+  }
+
   void _handleMenuAction(String action) {
     switch (action) {
       case 'toggle_status':
         _toggleStatusProjeto();
-        break;
-      case 'metodologias':
-        if (_projeto.status == StatusProjeto.aberto) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ManageMetodologiasScreen(projeto: _projeto),
-            ),
-          );
-        }
-        break;
-      case 'mapa':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ProjectMapScreen(projeto: _projeto),
-          ),
-        );
-        break;
-      case 'stats':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ProjectStatsScreen(projeto: _projeto),
-          ),
-        );
-        break;
-      case 'export':
-        if (!_isExporting) _exportToExcel();
         break;
       case 'info':
         _showProjectInfo();
@@ -895,385 +711,29 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
     }
   }
 
-  // Continuar com o resto dos métodos...
   Future<void> _confirmarDeleteProjeto() async {
-    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-    final totalPontos = projectProvider.pontosColeta.length;
-
-    int totalColetas = 0;
-    try {
-      final db = await DatabaseHelper.instance.database;
-      final result = await db.rawQuery('''
-        SELECT COUNT(*) as count 
-        FROM coletas c
-        INNER JOIN pontos_coleta p ON c.ponto_coleta_id = p.id
-        WHERE p.projeto_id = ?
-      ''', [_projeto.id]);
-
-      totalColetas = result.first['count'] as int;
-    } catch (e) {
-      print('Erro ao contar coletas: $e');
-    }
-
+    // Implementar delete
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.warning, color: Colors.red, size: 24),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Excluir Projeto',
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Esta ação NÃO pode ser desfeita!',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
-            ),
-            SizedBox(height: 12),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Será excluído permanentemente:',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.folder, size: 16, color: Colors.red),
-                      SizedBox(width: 8),
-                      Expanded(child: Text('1 projeto: ${_projeto.nome}')),
-                    ],
-                  ),
-                  if (totalPontos > 0) ...[
-                    SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, size: 16, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('$totalPontos pontos de coleta'),
-                      ],
-                    ),
-                  ],
-                  if (totalColetas > 0) ...[
-                    SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.science, size: 16, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('$totalColetas coletas registradas'),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (totalColetas > 0) ...[
-              SizedBox(height: 16),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.lightbulb, color: Colors.blue, size: 20),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Recomendamos exportar os dados para Excel antes de excluir.',
-                        style: TextStyle(
-                          color: Colors.blue.shade700,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
+        title: Text('Excluir Projeto'),
+        content: Text('Tem certeza que deseja excluir este projeto?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Cancelar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey[600],
-            ),
           ),
-          if (totalColetas > 0)
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                _exportToExcel();
-              },
-              icon: Icon(Icons.table_chart, size: 16),
-              label: Text('Exportar Primeiro'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ElevatedButton.icon(
-            onPressed: () => _executarDeleteProjeto(context),
-            icon: Icon(Icons.delete_forever, size: 16),
-            label: Text('Excluir Tudo'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _executarDeleteProjeto(BuildContext dialogContext) async {
-    Navigator.pop(dialogContext);
-
-    setState(() {
-      _isDeleting = true;
-    });
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('Excluindo projeto...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final db = await DatabaseHelper.instance.database;
-
-      await db.rawDelete('''
-        DELETE FROM coletas 
-        WHERE ponto_coleta_id IN (
-          SELECT id FROM pontos_coleta WHERE projeto_id = ?
-        )
-      ''', [_projeto.id]);
-
-      await db.delete(
-        'pontos_coleta',
-        where: 'projeto_id = ?',
-        whereArgs: [_projeto.id],
-      );
-
-      await db.delete(
-        'projetos',
-        where: 'id = ?',
-        whereArgs: [_projeto.id],
-      );
-
-      final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-      await projectProvider.loadProjetos();
-
-      Navigator.pop(context); // Fechar loading
-      Navigator.pop(context); // Voltar para lista
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Projeto "${_projeto.nome}" excluído'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    } catch (e) {
-      Navigator.pop(context);
-
-      setState(() {
-        _isDeleting = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao excluir projeto: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _exportToExcel() async {
-    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-
-    if (projectProvider.pontosColeta.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Row(
-            children: [
-              Icon(Icons.warning, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('Projeto Vazio'),
-            ],
-          ),
-          content: Text(
-            'Este projeto não possui pontos de coleta para exportar.\n\nCrie pelo menos um ponto antes de exportar.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('OK'),
-              style: TextButton.styleFrom(
-                foregroundColor: Color(0xFF8D6E63),
-              ),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    // NOVA PARTE: Mostrar dialog de seleção de template
-    final selectedTemplate = await showDialog<ExcelTemplate>(
-      context: context,
-      builder: (context) => TemplateSelectionDialog(projeto: _projeto),
-    );
-
-    // Se usuário cancelou, não exportar
-    if (selectedTemplate == null) return;
-
-    setState(() {
-      _isExporting = true;
-    });
-
-    try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final user = userProvider.currentUser;
-
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: usuário não encontrado'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // MUDANÇA: Passar o template selecionado
-      final filePath = await ExcelExporter.exportProject(
-        _projeto,
-        user,
-        template: selectedTemplate,
-      );
-
-      if (filePath != null) {
-        _showExportSuccessDialog(filePath);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao exportar arquivo Excel'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      print('Erro no export: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao exportar: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isExporting = false;
-      });
-    }
-  }
-
-  void _showExportSuccessDialog(String filePath) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Export Concluído'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Arquivo Excel gerado com sucesso!'),
-            SizedBox(height: 8),
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                filePath.split('/').last,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Fechar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey[600],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
+          ElevatedButton(
+            onPressed: () async {
               Navigator.pop(context);
-              ExcelExporter.shareFile(filePath);
+              // Deletar projeto
+              await DatabaseHelper.instance.database.then((db) async {
+                await db.delete('projetos', where: 'id = ?', whereArgs: [_projeto.id]);
+              });
+              Navigator.pop(context);
             },
-            icon: Icon(Icons.share),
-            label: Text('Compartilhar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
+            child: Text('Excluir'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           ),
         ],
       ),
@@ -1296,11 +756,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoRow('Nome', _projeto.nome),
-            _buildInfoRow('Grupo', _projeto.grupoBiologico.displayName),
-            _buildInfoRow('Campanha', _projeto.campanha),
-            _buildInfoRow('Período', _projeto.periodo),
-            _buildInfoRow('Município', _projeto.municipio),
+            _buildInfoRow('Nome', _projeto.nome ?? 'Sem nome'),
+            _buildInfoRow('Município', _projeto.municipio ?? 'Não informado'),
             _buildInfoRow('Status', _projeto.status.value.toUpperCase()),
             _buildInfoRow(
               'Criado',
@@ -1317,9 +774,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Fechar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Color(0xFF8D6E63),
-            ),
+            style: TextButton.styleFrom(foregroundColor: Color(0xFF8D6E63)),
           ),
         ],
       ),
@@ -1345,9 +800,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen>
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                color: Color(0xFF5D4037),
-              ),
+              style: TextStyle(color: Color(0xFF5D4037)),
             ),
           ),
         ],
