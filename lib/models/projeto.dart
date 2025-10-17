@@ -2,36 +2,27 @@ import 'enums.dart';
 
 class Projeto {
   final int? id;
-  final String nome;
-  final GrupoBiologico grupoBiologico;
-  final String campanha;
-  final String periodo; // Seca ou Cheia
-  final String municipio;
-  final int usuarioId;
+  final String? nome;
+  final String? municipio;
+  final int? usuarioId;
   final DateTime dataInicio;
-  final StatusProjeto status;        // ← NOVA LINHA
+  final StatusProjeto status;
   final DateTime? dataFechamento;
 
   Projeto({
     this.id,
-    required this.nome,
-    required this.grupoBiologico,
-    required this.campanha,
-    required this.periodo,
-    required this.municipio,
-    required this.usuarioId,
-    required this.dataInicio,
-    this.status = StatusProjeto.aberto,  // ← NOVA LINHA (padrão = aberto)
+    this.nome,
+    this.municipio,
+    this.usuarioId,
+    DateTime? dataInicio,
+    this.status = StatusProjeto.aberto,
     this.dataFechamento,
-  });
+  }) : dataInicio = dataInicio ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'nome': nome,
-      'grupo_biologico': grupoBiologico.code,
-      'campanha': campanha,
-      'periodo': periodo,
       'municipio': municipio,
       'usuario_id': usuarioId,
       'data_inicio': dataInicio.toIso8601String(),
@@ -44,20 +35,37 @@ class Projeto {
     return Projeto(
       id: map['id'],
       nome: map['nome'],
-      grupoBiologico: GrupoBiologico.values.firstWhere(
-            (e) => e.code == map['grupo_biologico'],
-      ),
-      campanha: map['campanha'],
-      periodo: map['periodo'],
       municipio: map['municipio'],
       usuarioId: map['usuario_id'],
       dataInicio: DateTime.parse(map['data_inicio']),
-    status: StatusProjeto.values.firstWhere(
-    (e) => e.value == (map['status'] ?? 'ABERTO'),
-    ),
-      dataFechamento: map['data_fechamento'] != null         // ← NOVA LINHA
+      status: StatusProjeto.values.firstWhere(
+            (e) => e.value == (map['status'] ?? 'ABERTO'),
+        orElse: () => StatusProjeto.aberto,
+      ),
+      dataFechamento: map['data_fechamento'] != null
           ? DateTime.parse(map['data_fechamento'])
           : null,
+    );
+  }
+
+  // Método copyWith para facilitar edições
+  Projeto copyWith({
+    int? id,
+    String? nome,
+    String? municipio,
+    int? usuarioId,
+    DateTime? dataInicio,
+    StatusProjeto? status,
+    DateTime? dataFechamento,
+  }) {
+    return Projeto(
+      id: id ?? this.id,
+      nome: nome ?? this.nome,
+      municipio: municipio ?? this.municipio,
+      usuarioId: usuarioId ?? this.usuarioId,
+      dataInicio: dataInicio ?? this.dataInicio,
+      status: status ?? this.status,
+      dataFechamento: dataFechamento ?? this.dataFechamento,
     );
   }
 }

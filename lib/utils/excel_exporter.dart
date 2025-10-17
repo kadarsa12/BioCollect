@@ -4,6 +4,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import '../models/projeto.dart';
+import '../models/grupo_fauna.dart';
+import '../models/campanha.dart';
 import '../models/ponto_coleta.dart';
 import '../models/coleta.dart';
 import '../models/user.dart';
@@ -13,25 +15,29 @@ import '../utils/database_helper.dart';
 class ExcelExporter {
   static Future<String?> exportProject(
       Projeto projeto,
+      GrupoFauna grupoFauna,
+      Campanha campanha,
       User usuario,
       {ExcelTemplate? template}
       ) async {
     try {
       print('=== INICIANDO EXPORT COM TEMPLATE ===');
       print('Projeto: ${projeto.nome}');
+      print('Grupo: ${grupoFauna.nomeExibicao}');
+      print('Campanha: ${campanha.nomeExibicao}');
       print('Template: ${template?.nome ?? "Padrão"}');
 
       // Se não tem template, usar padrão
       if (template == null) {
         print('Criando template padrão...');
-        template = await _getDefaultTemplate(projeto.grupoBiologico.code);
+        template = await _getDefaultTemplate(grupoFauna.tipo?.code ?? 'GERAL');
       }
 
       // Criar workbook
       print('Criando workbook...');
       final Workbook workbook = Workbook();
       final Worksheet worksheet = workbook.worksheets[0];
-      worksheet.name = 'Coletas_${projeto.campanha}';
+      worksheet.name = 'Coletas_${campanha.nome ?? "Dados"}';
       print('Workbook criado com sucesso');
 
       // Configurar cabeçalhos baseado no template
@@ -55,13 +61,33 @@ class ExcelExporter {
 
         if (coletas.isEmpty) {
           print('Adicionando linha sem coleta para ponto ${ponto.nome}');
-          _addRowDataFromTemplate(worksheet, currentRow, projeto, ponto, null, usuario, template);
+          _addRowDataFromTemplate(
+              worksheet,
+              currentRow,
+              projeto,
+              grupoFauna,
+              campanha,
+              ponto,
+              null,
+              usuario,
+              template
+          );
           currentRow++;
         } else {
           for (int j = 0; j < coletas.length; j++) {
             final coleta = coletas[j];
             print('Adicionando coleta ${j + 1} do ponto ${ponto.nome}');
-            _addRowDataFromTemplate(worksheet, currentRow, projeto, ponto, coleta, usuario, template);
+            _addRowDataFromTemplate(
+                worksheet,
+                currentRow,
+                projeto,
+                grupoFauna,
+                campanha,
+                ponto,
+                coleta,
+                usuario,
+                template
+            );
             currentRow++;
           }
         }
@@ -82,7 +108,7 @@ class ExcelExporter {
       // Obter diretório para salvar
       print('Obtendo diretório...');
       final Directory directory = await getApplicationDocumentsDirectory();
-      final String fileName = _generateFileName(projeto, template);
+      final String fileName = _generateFileName(projeto, grupoFauna, campanha, template);
       final String filePath = '${directory.path}/$fileName';
 
       print('Salvando arquivo: $filePath');
@@ -151,6 +177,8 @@ class ExcelExporter {
       Worksheet worksheet,
       int row,
       Projeto projeto,
+      GrupoFauna grupoFauna,
+      Campanha campanha,
       PontoColeta ponto,
       Coleta? coleta,
       User usuario,
@@ -170,7 +198,16 @@ class ExcelExporter {
       final cell = worksheet.getRangeByIndex(row, i + 1);
 
       // Obter valor baseado no campo
-      final valor = _getFieldValue(coluna.campoOriginal, projeto, ponto, coleta, usuario, dateFormat);
+      final valor = _getFieldValue(
+          coluna.campoOriginal,
+          projeto,
+          grupoFauna,
+          campanha,
+          ponto,
+          coleta,
+          usuario,
+          dateFormat
+      );
 
       // Aplicar formatação baseada no tipo
       if (coluna.formato == 'numero' && valor is num) {
@@ -184,27 +221,37 @@ class ExcelExporter {
   static dynamic _getFieldValue(
       String campo,
       Projeto projeto,
+      GrupoFauna grupoFauna,
+      Campanha campanha,
       PontoColeta ponto,
       Coleta? coleta,
       User usuario,
       DateFormat dateFormat,
       ) {
     switch (campo) {
+      case 'projeto':
+        return projeto.nome ?? '';
+      case 'grupoBiologico':
+        return grupoFauna.nomeExibicao;
       case 'campanha':
-        return projeto.campanha;
+        return campanha.nome ?? campanha.nomeExibicao;
       case 'data':
         final data = coleta?.dataHora ?? ponto.dataHora;
         return dateFormat.format(data);
       case 'periodo':
-        return projeto.periodo;
+        return campanha.periodo ?? '';
       case 'municipio':
-        return projeto.municipio;
+        return projeto.municipio ?? '';
       case 'latitude':
-        return ponto.latitude != 0.0 ? "${ponto.latitude.toStringAsFixed(6)}°S" : '';
+        return ponto.latitude != null && ponto.latitude != 0.0
+            ? "${ponto.latitude!.toStringAsFixed(6)}°S"
+            : '';
       case 'longitude':
-        return ponto.longitude != 0.0 ? "${ponto.longitude.toStringAsFixed(6)}°W" : '';
+        return ponto.longitude != null && ponto.longitude != 0.0
+            ? "${ponto.longitude!.toStringAsFixed(6)}°W"
+            : '';
       case 'ponto':
-        return ponto.nome;
+        return ponto.nome ?? '';
       case 'ordem':
         return ''; // Campo científico opcional - implementar quando necessário
       case 'familia':
@@ -251,19 +298,26 @@ class ExcelExporter {
         }
         return observacoes;
       case 'tecnicoResponsavel':
-        return usuario.nome;
+        return usuario.nome ?? '';
       default:
         print('Campo não mapeado: $campo');
         return '';
     }
   }
 
-  static String _generateFileName(Projeto projeto, ExcelTemplate template) {
+  static String _generateFileName(
+      Projeto projeto,
+      GrupoFauna grupoFauna,
+      Campanha campanha,
+      ExcelTemplate template
+      ) {
     final DateFormat fileFormat = DateFormat('yyyy.MM.dd');
     final data = fileFormat.format(DateTime.now());
-    final grupo = projeto.grupoBiologico.code.toLowerCase();
+    final grupo = grupoFauna.tipo?.code.toLowerCase() ?? 'geral';
     final templateName = template.nome.replaceAll(' ', '_').toLowerCase();
-    return '${grupo}_${projeto.municipio.replaceAll(' ', '_')}_${projeto.campanha}_${templateName}_$data.xlsx';
+    final municipio = projeto.municipio?.replaceAll(' ', '_') ?? 'sem_municipio';
+    final campanhaNome = campanha.nome?.replaceAll(' ', '_') ?? 'campanha';
+    return '${grupo}_${municipio}_${campanhaNome}_${templateName}_$data.xlsx';
   }
 
   static Future<void> shareFile(String filePath) async {

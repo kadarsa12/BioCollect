@@ -1,14 +1,22 @@
-// widgets/template_selection_dialog.dart
 import 'package:flutter/material.dart';
 import '../models/excel_template.dart';
 import '../models/projeto.dart';
+import '../models/grupo_fauna.dart';
+import '../models/campanha.dart';
 import '../utils/database_helper.dart';
 import '../screens/excel_templates_screen.dart';
 
 class TemplateSelectionDialog extends StatefulWidget {
   final Projeto projeto;
+  final GrupoFauna grupoFauna;
+  final Campanha campanha;
 
-  const TemplateSelectionDialog({Key? key, required this.projeto}) : super(key: key);
+  const TemplateSelectionDialog({
+    Key? key,
+    required this.projeto,
+    required this.grupoFauna,
+    required this.campanha,
+  }) : super(key: key);
 
   @override
   State<TemplateSelectionDialog> createState() => _TemplateSelectionDialogState();
@@ -29,8 +37,8 @@ class _TemplateSelectionDialogState extends State<TemplateSelectionDialog> {
     setState(() => _isLoading = true);
 
     try {
-      final templates = await DatabaseHelper.instance
-          .getTemplatesByGrupo(widget.projeto.grupoBiologico.code);
+      final grupoCodigo = widget.grupoFauna.tipo?.code ?? 'GERAL';
+      final templates = await DatabaseHelper.instance.getTemplatesByGrupo(grupoCodigo);
 
       setState(() {
         _templates = templates;
@@ -52,15 +60,19 @@ class _TemplateSelectionDialogState extends State<TemplateSelectionDialog> {
 
   ExcelTemplate _createEmptyTemplate() {
     // Template básico caso não exista nenhum
+    final grupoCodigo = widget.grupoFauna.tipo?.code ?? 'GERAL';
+
     return ExcelTemplate(
       nome: 'Template Básico',
-      grupoBiologico: widget.projeto.grupoBiologico.code,
+      grupoBiologico: grupoCodigo,
       colunas: [
-        ExcelColumn(campoOriginal: 'campanha', nomeExibicao: 'Campanha', ordem: 0),
-        ExcelColumn(campoOriginal: 'data', nomeExibicao: 'Data', ordem: 1),
-        ExcelColumn(campoOriginal: 'ponto', nomeExibicao: 'Ponto', ordem: 2),
-        ExcelColumn(campoOriginal: 'especie', nomeExibicao: 'Espécie', ordem: 3),
-        ExcelColumn(campoOriginal: 'tecnicoResponsavel', nomeExibicao: 'Técnico', ordem: 4),
+        ExcelColumn(campoOriginal: 'projeto', nomeExibicao: 'Projeto', ordem: 0),
+        ExcelColumn(campoOriginal: 'grupoBiologico', nomeExibicao: 'Grupo', ordem: 1),
+        ExcelColumn(campoOriginal: 'campanha', nomeExibicao: 'Campanha', ordem: 2),
+        ExcelColumn(campoOriginal: 'data', nomeExibicao: 'Data', ordem: 3),
+        ExcelColumn(campoOriginal: 'ponto', nomeExibicao: 'Ponto', ordem: 4),
+        ExcelColumn(campoOriginal: 'especie', nomeExibicao: 'Espécie', ordem: 5),
+        ExcelColumn(campoOriginal: 'tecnicoResponsavel', nomeExibicao: 'Técnico', ordem: 6),
       ],
     );
   }
@@ -71,7 +83,7 @@ class _TemplateSelectionDialogState extends State<TemplateSelectionDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.7, // Altura fixa
+        height: MediaQuery.of(context).size.height * 0.7,
         child: Column(
           children: [
             // Cabeçalho
@@ -119,37 +131,58 @@ class _TemplateSelectionDialogState extends State<TemplateSelectionDialog> {
               Expanded(
                 child: Column(
                   children: [
-                    // Info do projeto
+                    // Info do projeto/grupo/campanha
                     Container(
                       padding: const EdgeInsets.all(16),
                       color: Colors.grey[50],
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.science,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Projeto: ${widget.projeto.nome}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8D6E63).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              widget.projeto.grupoBiologico.displayName,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF8D6E63),
-                                fontWeight: FontWeight.bold,
+                          // Projeto
+                          Row(
+                            children: [
+                              Icon(Icons.folder, color: Colors.grey[600], size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.projeto.nome ?? 'Sem nome',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Grupo + Campanha
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF8D6E63).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  widget.grupoFauna.nomeExibicao,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF8D6E63),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('•', style: TextStyle(color: Colors.grey)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.campanha.nomeExibicao,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -172,7 +205,7 @@ class _TemplateSelectionDialogState extends State<TemplateSelectionDialog> {
                 ),
               ),
 
-            // Botões de ação - SEMPRE VISÍVEL
+            // Botões de ação
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -355,11 +388,13 @@ class _TemplateSelectionDialogState extends State<TemplateSelectionDialog> {
   }
 
   void _openTemplatesManager() async {
+    final grupoCodigo = widget.grupoFauna.tipo?.code ?? 'GERAL';
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ExcelTemplatesScreen(
-          grupoBiologico: widget.projeto.grupoBiologico.code,
+          grupoBiologico: grupoCodigo,
         ),
       ),
     );

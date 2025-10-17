@@ -4,10 +4,12 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/user.dart';
 import '../models/projeto.dart';
+import '../models/grupo_fauna.dart'; // ← NOVO IMPORT
+import '../models/campanha.dart'; // ← NOVO IMPORT (vamos criar depois)
 import '../models/ponto_coleta.dart';
 import '../models/coleta.dart';
 import '../models/metodologia.dart';
-import '../models/excel_template.dart'; // <- NOVA IMPORTAÇÃO
+import '../models/excel_template.dart';
 import 'string_extensions.dart';
 
 class DatabaseHelper {
@@ -28,7 +30,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // <- AUMENTEI PARA 4
+      version: 5, // ← AUMENTEI PARA 5
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -39,21 +41,18 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
+        nome TEXT,
         data_criacao TEXT NOT NULL
       )
     ''');
 
-    // Tabela de projetos
+    // Tabela de projetos (SIMPLIFICADA)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS projetos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        grupo_biologico TEXT NOT NULL,
-        campanha TEXT NOT NULL,
-        periodo TEXT NOT NULL,
-        municipio TEXT NOT NULL,
-        usuario_id INTEGER NOT NULL,
+        nome TEXT,
+        municipio TEXT,
+        usuario_id INTEGER,
         data_inicio TEXT NOT NULL,
         status TEXT DEFAULT 'ABERTO',
         data_fechamento TEXT,
@@ -61,17 +60,48 @@ class DatabaseHelper {
       )
     ''');
 
-    // Tabela de pontos de coleta - CORRIGIDA
+    // ===== NOVA TABELA: grupos_fauna =====
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS grupos_fauna (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        projeto_id INTEGER NOT NULL,
+        tipo TEXT,
+        nome_customizado TEXT,
+        descricao TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (projeto_id) REFERENCES projetos (id)
+      )
+    ''');
+
+    // ===== NOVA TABELA: campanhas =====
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS campanhas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        grupo_fauna_id INTEGER NOT NULL,
+        nome TEXT,
+        periodo TEXT,
+        data_inicio TEXT NOT NULL,
+        data_fim TEXT,
+        status TEXT DEFAULT 'ATIVA',
+        observacoes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (grupo_fauna_id) REFERENCES grupos_fauna (id)
+      )
+    ''');
+
+    // Tabela de pontos de coleta (MODIFICADA)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS pontos_coleta (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        projeto_id INTEGER NOT NULL,
-        latitude REAL NOT NULL,
-        longitude REAL NOT NULL,
+        nome TEXT,
+        campanha_id INTEGER NOT NULL,
+        latitude REAL,
+        longitude REAL,
         data_hora TEXT NOT NULL,
         observacoes TEXT,
-        FOREIGN KEY (projeto_id) REFERENCES projetos (id)
+        FOREIGN KEY (campanha_id) REFERENCES campanhas (id)
       )
     ''');
 
@@ -80,10 +110,10 @@ class DatabaseHelper {
       CREATE TABLE IF NOT EXISTS coletas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ponto_coleta_id INTEGER NOT NULL,
-        metodologia TEXT NOT NULL,
-        especie TEXT NOT NULL,
+        metodologia TEXT,
+        especie TEXT,
         nome_popular TEXT,
-        quantidade INTEGER NOT NULL,
+        quantidade INTEGER,
         caminho_foto TEXT,
         data_hora TEXT NOT NULL,
         observacoes TEXT,
@@ -95,37 +125,33 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS metodologias (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
+        nome TEXT,
         descricao TEXT,
-        grupo_biologico TEXT NOT NULL,
-        usuario_id INTEGER NOT NULL,
+        grupo_biologico TEXT,
+        usuario_id INTEGER,
         data_criacao TEXT NOT NULL,
         FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
       )
     ''');
 
-    // ===== NOVAS TABELAS PARA TEMPLATES EXCEL =====
+    // Tabelas de templates Excel
     await db.execute(_createExcelTemplatesTable);
     await db.execute(_createExcelColumnsTable);
-    // ================================================
   }
 
   // ===== MÉTODO PARA UPGRADE DO BANCO =====
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Adicionar tabelas de templates para usuários que já têm o app
       await db.execute(_createExcelTemplatesTable);
       await db.execute(_createExcelColumnsTable);
     }
 
     if (oldVersion < 3) {
-      // Adicionar status aos projetos existentes
       await db.execute('ALTER TABLE projetos ADD COLUMN status TEXT DEFAULT "ABERTO"');
       await db.execute('ALTER TABLE projetos ADD COLUMN data_fechamento TEXT');
     }
 
     if (oldVersion < 4) {
-      // Criar tabela pontos_coleta se não existir (caso tenha ficado faltando)
       await db.execute('''
         CREATE TABLE IF NOT EXISTS pontos_coleta (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,9 +166,121 @@ class DatabaseHelper {
         )
       ''');
     }
+
+    // ===== NOVA MIGRATION - VERSÃO 5 =====
+    if (oldVersion < 5) {
+      // Criar novas tabelas
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS grupos_fauna (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          projeto_id INTEGER NOT NULL,
+          tipo TEXT,
+          nome_customizado TEXT,
+          descricao TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (projeto_id) REFERENCES projetos (id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS campanhas (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          grupo_fauna_id INTEGER NOT NULL,
+          nome TEXT,
+          periodo TEXT,
+          data_inicio TEXT NOT NULL,
+          data_fim TEXT,
+          status TEXT DEFAULT 'ATIVA',
+          observacoes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (grupo_fauna_id) REFERENCES grupos_fauna (id)
+        )
+      ''');
+
+      // Migrar dados antigos (se houver projetos)
+      final projetos = await db.query('projetos');
+
+      for (final projeto in projetos) {
+        // Criar grupo_fauna para cada projeto antigo
+        final grupoId = await db.insert('grupos_fauna', {
+          'projeto_id': projeto['id'],
+          'tipo': projeto['grupo_biologico'], // Dados antigos
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        // Criar campanha para cada projeto antigo
+        final campanhaId = await db.insert('campanhas', {
+          'grupo_fauna_id': grupoId,
+          'nome': projeto['campanha'], // Dados antigos
+          'periodo': projeto['periodo'], // Dados antigos
+          'data_inicio': projeto['data_inicio'],
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        // Atualizar pontos_coleta para apontar para campanha
+        await db.execute('''
+          UPDATE pontos_coleta 
+          SET campanha_id = ? 
+          WHERE projeto_id = ?
+        ''', [campanhaId, projeto['id']]);
+      }
+
+      // Remover colunas antigas da tabela projetos
+      // (SQLite não suporta DROP COLUMN, então vamos recriar)
+      await db.execute('ALTER TABLE projetos RENAME TO projetos_old');
+
+      await db.execute('''
+        CREATE TABLE projetos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nome TEXT,
+          municipio TEXT,
+          usuario_id INTEGER,
+          data_inicio TEXT NOT NULL,
+          status TEXT DEFAULT 'ABERTO',
+          data_fechamento TEXT,
+          FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+        )
+      ''');
+
+      await db.execute('''
+        INSERT INTO projetos (id, nome, municipio, usuario_id, data_inicio, status, data_fechamento)
+        SELECT id, nome, municipio, usuario_id, data_inicio, status, data_fechamento
+        FROM projetos_old
+      ''');
+
+      await db.execute('DROP TABLE projetos_old');
+
+      // Atualizar pontos_coleta para remover projeto_id
+      await db.execute('ALTER TABLE pontos_coleta RENAME TO pontos_coleta_old');
+
+      await db.execute('''
+        CREATE TABLE pontos_coleta (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nome TEXT,
+          campanha_id INTEGER NOT NULL,
+          latitude REAL,
+          longitude REAL,
+          data_hora TEXT NOT NULL,
+          observacoes TEXT,
+          FOREIGN KEY (campanha_id) REFERENCES campanhas (id)
+        )
+      ''');
+
+      await db.execute('''
+        INSERT INTO pontos_coleta (id, nome, campanha_id, latitude, longitude, data_hora, observacoes)
+        SELECT id, nome, campanha_id, latitude, longitude, data_hora, observacoes
+        FROM pontos_coleta_old
+      ''');
+
+      await db.execute('DROP TABLE pontos_coleta_old');
+    }
   }
 
-  // ===== DEFINIÇÕES DAS NOVAS TABELAS =====
+  // ===== DEFINIÇÕES DAS TABELAS EXCEL =====
   static const String _createExcelTemplatesTable = '''
     CREATE TABLE IF NOT EXISTS excel_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -167,23 +305,7 @@ class DatabaseHelper {
     )
   ''';
 
-  // Métodos para usuários
-  Future<int> insertUser(User user) async {
-    final db = await database;
-    return await db.insert('usuarios', user.toMap());
-  }
-
-  Future<User?> getUser() async {
-    final db = await database;
-    final maps = await db.query('usuarios', limit: 1);
-
-    if (maps.isNotEmpty) {
-      return User.fromMap(maps.first);
-    }
-    return null;
-  }
-
-  // Métodos para projetos
+  // ===== MÉTODOS PARA PROJETOS =====
   Future<int> insertProjeto(Projeto projeto) async {
     final db = await database;
     return await db.insert('projetos', projeto.toMap());
@@ -192,13 +314,55 @@ class DatabaseHelper {
   Future<List<Projeto>> getProjetos() async {
     final db = await database;
     final maps = await db.query('projetos', orderBy: 'data_inicio DESC');
-
-    return List.generate(maps.length, (i) {
-      return Projeto.fromMap(maps[i]);
-    });
+    return List.generate(maps.length, (i) => Projeto.fromMap(maps[i]));
   }
 
-  // Métodos para pontos de coleta
+  // ===== NOVOS MÉTODOS PARA GRUPOS_FAUNA =====
+  Future<int> insertGrupoFauna(GrupoFauna grupo) async {
+    final db = await database;
+    return await db.insert('grupos_fauna', grupo.toMap());
+  }
+
+  Future<List<GrupoFauna>> getGruposByProjeto(int projetoId) async {
+    final db = await database;
+    final maps = await db.query(
+      'grupos_fauna',
+      where: 'projeto_id = ?',
+      whereArgs: [projetoId],
+      orderBy: 'created_at DESC',
+    );
+    return List.generate(maps.length, (i) => GrupoFauna.fromMap(maps[i]));
+  }
+
+  Future<int> updateGrupoFauna(GrupoFauna grupo) async {
+    final db = await database;
+    return await db.update(
+      'grupos_fauna',
+      grupo.toMap(),
+      where: 'id = ?',
+      whereArgs: [grupo.id],
+    );
+  }
+
+  Future<int> deleteGrupoFauna(int id) async {
+    final db = await database;
+    return await db.delete('grupos_fauna', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ===== MÉTODOS PARA USUÁRIOS =====
+  Future<int> insertUser(User user) async {
+    final db = await database;
+    return await db.insert('usuarios', user.toMap());
+  }
+
+  Future<User?> getUser() async {
+    final db = await database;
+    final maps = await db.query('usuarios', limit: 1);
+    if (maps.isNotEmpty) return User.fromMap(maps.first);
+    return null;
+  }
+
+  // ===== MÉTODOS PARA PONTOS DE COLETA =====
   Future<int> insertPontoColeta(PontoColeta ponto) async {
     final db = await database;
     return await db.insert('pontos_coleta', ponto.toMap());
@@ -212,13 +376,10 @@ class DatabaseHelper {
       whereArgs: [projetoId],
       orderBy: 'data_hora DESC',
     );
-
-    return List.generate(maps.length, (i) {
-      return PontoColeta.fromMap(maps[i]);
-    });
+    return List.generate(maps.length, (i) => PontoColeta.fromMap(maps[i]));
   }
 
-  // Métodos para metodologias
+  // ===== MÉTODOS PARA METODOLOGIAS =====
   Future<int> insertMetodologia(Metodologia metodologia) async {
     final db = await database;
     return await db.insert('metodologias', metodologia.toMap());
@@ -232,10 +393,7 @@ class DatabaseHelper {
       whereArgs: [grupoBiologico, usuarioId],
       orderBy: 'nome ASC',
     );
-
-    return List.generate(maps.length, (i) {
-      return Metodologia.fromMap(maps[i]);
-    });
+    return List.generate(maps.length, (i) => Metodologia.fromMap(maps[i]));
   }
 
   Future<List<Metodologia>> getAllMetodologias(int usuarioId) async {
@@ -246,10 +404,7 @@ class DatabaseHelper {
       whereArgs: [usuarioId],
       orderBy: 'grupo_biologico ASC, nome ASC',
     );
-
-    return List.generate(maps.length, (i) {
-      return Metodologia.fromMap(maps[i]);
-    });
+    return List.generate(maps.length, (i) => Metodologia.fromMap(maps[i]));
   }
 
   Future<void> deleteMetodologia(int id) async {
@@ -257,7 +412,7 @@ class DatabaseHelper {
     await db.delete('metodologias', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Métodos para coletas
+  // ===== MÉTODOS PARA COLETAS =====
   Future<int> insertColeta(Coleta coleta) async {
     final db = await database;
     return await db.insert('coletas', coleta.toMap());
@@ -271,19 +426,12 @@ class DatabaseHelper {
       whereArgs: [pontoId],
       orderBy: 'data_hora DESC',
     );
-
-    return List.generate(maps.length, (i) {
-      return Coleta.fromMap(maps[i]);
-    });
+    return List.generate(maps.length, (i) => Coleta.fromMap(maps[i]));
   }
 
-  // ===== NOVOS MÉTODOS PARA TEMPLATES EXCEL =====
-
-  // Inserir template
+  // ===== MÉTODOS PARA TEMPLATES EXCEL =====
   Future<int> insertTemplate(ExcelTemplate template) async {
     final db = await database;
-
-    // Inserir template
     final templateId = await db.insert('excel_templates', {
       'nome': template.nome,
       'grupoBiologico': template.grupoBiologico,
@@ -292,7 +440,6 @@ class DatabaseHelper {
       'atualizadoEm': template.atualizadoEm?.millisecondsSinceEpoch,
     });
 
-    // Inserir colunas
     for (final coluna in template.colunas) {
       await db.insert('excel_columns', {
         'templateId': templateId,
@@ -303,14 +450,11 @@ class DatabaseHelper {
         'formato': coluna.formato,
       });
     }
-
     return templateId;
   }
 
-  // Buscar templates por grupo
   Future<List<ExcelTemplate>> getTemplatesByGrupo(String grupoBiologico) async {
     final db = await database;
-
     final templates = await db.query(
       'excel_templates',
       where: 'grupoBiologico = ?',
@@ -319,7 +463,6 @@ class DatabaseHelper {
     );
 
     List<ExcelTemplate> result = [];
-
     for (final templateMap in templates) {
       final colunas = await db.query(
         'excel_columns',
@@ -345,23 +488,14 @@ class DatabaseHelper {
           formato: c['formato'] as String?,
         )).toList(),
       );
-
       result.add(template);
     }
-
     return result;
   }
 
-  // Buscar template por ID
   Future<ExcelTemplate?> getTemplateById(int id) async {
     final db = await database;
-
-    final templateMaps = await db.query(
-      'excel_templates',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
+    final templateMaps = await db.query('excel_templates', where: 'id = ?', whereArgs: [id]);
     if (templateMaps.isEmpty) return null;
 
     final templateMap = templateMaps.first;
@@ -391,11 +525,8 @@ class DatabaseHelper {
     );
   }
 
-  // Atualizar template
   Future<int> updateTemplate(ExcelTemplate template) async {
     final db = await database;
-
-    // Atualizar template
     await db.update(
       'excel_templates',
       {
@@ -408,14 +539,8 @@ class DatabaseHelper {
       whereArgs: [template.id],
     );
 
-    // Deletar colunas antigas
-    await db.delete(
-      'excel_columns',
-      where: 'templateId = ?',
-      whereArgs: [template.id],
-    );
+    await db.delete('excel_columns', where: 'templateId = ?', whereArgs: [template.id]);
 
-    // Inserir colunas novas
     for (final coluna in template.colunas) {
       await db.insert('excel_columns', {
         'templateId': template.id,
@@ -426,42 +551,55 @@ class DatabaseHelper {
         'formato': coluna.formato,
       });
     }
-
     return template.id!;
   }
 
-  // Deletar template
   Future<int> deleteTemplate(int id) async {
     final db = await database;
-
-    // O CASCADE vai deletar as colunas automaticamente
-    return await db.delete(
-      'excel_templates',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('excel_templates', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Criar templates padrão para cada grupo biológico
   Future<void> createDefaultTemplates() async {
     final grupos = [
-      'ICTIOFAUNA',
-      'HERPETOFAUNA',
-      'AVIFAUNA',
-      'MASTOFAUNA',
-      'ENTOMOFAUNA',
-      'MACROINVERTEBRADOS',
-      'FLORA',
-      'ZOOPLANCTON',
-      'FITOPLANCTON'
+      'ICTIOFAUNA', 'HERPETOFAUNA', 'AVIFAUNA', 'MASTOFAUNA', 'ENTOMOFAUNA',
+      'MACROINVERTEBRADOS', 'FLORA', 'ZOOPLANCTON', 'FITOPLANCTON'
     ];
 
     for (final grupo in grupos) {
       final existing = await getTemplatesByGrupo(grupo);
-      if (existing.isEmpty) {
-        await _createDefaultTemplate(grupo);
-      }
+      if (existing.isEmpty) await _createDefaultTemplate(grupo);
     }
+  }
+  // ===== NOVOS MÉTODOS PARA CAMPANHAS =====
+  Future<int> insertCampanha(Campanha campanha) async {
+    final db = await database;
+    return await db.insert('campanhas', campanha.toMap());
+  }
+
+  Future<List<Campanha>> getCampanhasByGrupo(int grupoFaunaId) async {
+    final db = await database;
+    final maps = await db.query(
+      'campanhas',
+      where: 'grupo_fauna_id = ?',
+      whereArgs: [grupoFaunaId],
+      orderBy: 'data_inicio DESC',
+    );
+    return List.generate(maps.length, (i) => Campanha.fromMap(maps[i]));
+  }
+
+  Future<int> updateCampanha(Campanha campanha) async {
+    final db = await database;
+    return await db.update(
+      'campanhas',
+      campanha.toMap(),
+      where: 'id = ?',
+      whereArgs: [campanha.id],
+    );
+  }
+
+  Future<int> deleteCampanha(int id) async {
+    final db = await database;
+    return await db.delete('campanhas', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> _createDefaultTemplate(String grupoBiologico) async {
@@ -487,7 +625,6 @@ class DatabaseHelper {
     await insertTemplate(template);
   }
 
-  // Fechar banco
   Future close() async {
     final db = await database;
     db.close();

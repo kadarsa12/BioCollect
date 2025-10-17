@@ -1,25 +1,25 @@
 class Coleta {
   final int? id;
-  final int pontoColetaId;
-  final String metodologia;
-  final String especie;
+  final int? pontoColetaId;
+  final String? metodologia;
+  final String? especie;
   final String? nomePopular;
-  final int quantidade;
+  final int? quantidade;
   final String? caminhoFoto;
   final DateTime dataHora;
   final String? observacoes;
 
   Coleta({
     this.id,
-    required this.pontoColetaId,
-    required this.metodologia,
-    required this.especie,
+    this.pontoColetaId,
+    this.metodologia,
+    this.especie,
     this.nomePopular,
-    required this.quantidade,
+    this.quantidade,
     this.caminhoFoto,
-    required this.dataHora,
+    DateTime? dataHora,
     this.observacoes,
-  });
+  }) : dataHora = dataHora ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -46,6 +46,31 @@ class Coleta {
       caminhoFoto: map['caminho_foto'],
       dataHora: DateTime.parse(map['data_hora']),
       observacoes: map['observacoes'],
+    );
+  }
+
+  // Método copyWith para facilitar edições
+  Coleta copyWith({
+    int? id,
+    int? pontoColetaId,
+    String? metodologia,
+    String? especie,
+    String? nomePopular,
+    int? quantidade,
+    String? caminhoFoto,
+    DateTime? dataHora,
+    String? observacoes,
+  }) {
+    return Coleta(
+      id: id ?? this.id,
+      pontoColetaId: pontoColetaId ?? this.pontoColetaId,
+      metodologia: metodologia ?? this.metodologia,
+      especie: especie ?? this.especie,
+      nomePopular: nomePopular ?? this.nomePopular,
+      quantidade: quantidade ?? this.quantidade,
+      caminhoFoto: caminhoFoto ?? this.caminhoFoto,
+      dataHora: dataHora ?? this.dataHora,
+      observacoes: observacoes ?? this.observacoes,
     );
   }
 }

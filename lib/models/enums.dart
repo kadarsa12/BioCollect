@@ -46,3 +46,11 @@ enum StatusProjeto {
   const StatusProjeto(this.value);
   final String value;
 }
+enum StatusCampanha {
+  planejada('PLANEJADA'),
+  ativa('ATIVA'),
+  concluida('CONCLUIDA');
+
+  final String value;
+  const StatusCampanha(this.value);
+}
