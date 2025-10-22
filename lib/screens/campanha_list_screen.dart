@@ -6,7 +6,7 @@ import '../models/campanha.dart';
 import '../providers/project_provider.dart';
 import '../models/enums.dart';
 import 'create_campanha_screen.dart';
-// import 'campanha_detail_screen.dart'; // VAMOS CRIAR DEPOIS
+import 'campanha_detail_screen.dart'; // VAMOS CRIAR DEPOIS
 
 class CampanhaListScreen extends StatefulWidget {
   final Projeto projeto;
@@ -443,13 +443,16 @@ class _CampanhaListScreenState extends State<CampanhaListScreen>
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
-            // TODO: Navegar para detalhes da campanha (pontos de coleta)
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Tela de detalhes da campanha em breve!'),
-                backgroundColor: _grupoColor,
+            // ✅ NOVO: Navegar para CampanhaDetailScreen
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CampanhaDetailScreen(
+                  projeto: widget.projeto,
+                  grupoFauna: widget.grupoFauna,
+                  campanha: campanha,
+                ),
               ),
-            );
+            ).then((_) => _loadCampanhas());
           },
           child: Padding(
             padding: EdgeInsets.all(16),

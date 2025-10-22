@@ -113,7 +113,7 @@ class ApiService {
         'campanha_id': campanhaIdServidor,
         'latitude': ponto.latitude,
         'longitude': ponto.longitude,
-        'data_hora': ponto.dataHora.toIso8601String(),
+        'data_hora': (ponto.dataHora ?? DateTime.now()).toIso8601String(),
         'observacoes': ponto.observacoes,
       }).toList();
 

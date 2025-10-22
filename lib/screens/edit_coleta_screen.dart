@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../models/projeto.dart';
+import '../models/grupo_fauna.dart';
+import '../models/campanha.dart';
 import '../models/ponto_coleta.dart';
 import '../models/coleta.dart';
 import '../models/metodologia.dart';
@@ -16,11 +18,15 @@ class EditColetaScreen extends StatefulWidget {
   final Coleta coleta;
   final PontoColeta ponto;
   final Projeto projeto;
+  final GrupoFauna grupoFauna;
+  final Campanha campanha;
 
   EditColetaScreen({
     required this.coleta,
     required this.ponto,
     required this.projeto,
+    required this.grupoFauna,
+    required this.campanha,
   });
 
   @override
@@ -43,14 +49,16 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
   bool _isLoadingMetodologias = false;
   bool _metodologiaOriginalExiste = false;
 
+  Color get _grupoColor => _getColorForGrupo(widget.grupoFauna.tipo);
+
   @override
   void initState() {
     super.initState();
 
     // Inicializar controllers com dados atuais
-    _especieController = TextEditingController(text: widget.coleta.especie);
+    _especieController = TextEditingController(text: widget.coleta.especie ?? '');
     _nomePopularController = TextEditingController(text: widget.coleta.nomePopular ?? '');
-    _quantidadeController = TextEditingController(text: widget.coleta.quantidade.toString());
+    _quantidadeController = TextEditingController(text: widget.coleta.quantidade?.toString() ?? '1');
     _observacoesController = TextEditingController(text: widget.coleta.observacoes ?? '');
 
     _metodologia = widget.coleta.metodologia;
@@ -63,6 +71,31 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
     _loadMetodologias();
   }
 
+  Color _getColorForGrupo(GrupoBiologico? tipo) {
+    if (tipo == null) return Color(0xFF8D6E63);
+
+    switch (tipo) {
+      case GrupoBiologico.ictiofauna:
+        return Color(0xFF1976D2);
+      case GrupoBiologico.herpetofauna:
+        return Color(0xFF8D6E63);
+      case GrupoBiologico.avifauna:
+        return Color(0xFF388E3C);
+      case GrupoBiologico.mastofauna:
+        return Color(0xFF7B1FA2);
+      case GrupoBiologico.entomofauna:
+        return Color(0xFFFF8F00);
+      case GrupoBiologico.macroinvertebrados:
+        return Color(0xFF00796B);
+      case GrupoBiologico.flora:
+        return Color(0xFF558B2F);
+      case GrupoBiologico.zooplancton:
+        return Color(0xFF0097A7);
+      case GrupoBiologico.fitoplancton:
+        return Color(0xFF43A047);
+    }
+  }
+
   Future<void> _loadMetodologias() async {
     setState(() {
       _isLoadingMetodologias = true;
@@ -72,9 +105,9 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = userProvider.currentUser?.id;
 
-      if (userId != null) {
+      if (userId != null && widget.grupoFauna.tipo != null) {
         final metodologias = await DatabaseHelper.instance.getMetodologiasByGrupo(
-          widget.projeto.grupoBiologico.code,
+          widget.grupoFauna.tipo!.code,
           userId,
         );
 
@@ -86,8 +119,8 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
         _metodologiaOriginalExiste = metodologias.any((m) => m.nome == widget.coleta.metodologia);
 
         // Se não existe, criar automaticamente
-        if (!_metodologiaOriginalExiste && widget.coleta.metodologia.isNotEmpty) {
-          await _criarMetodologiaAutomatica(widget.coleta.metodologia);
+        if (!_metodologiaOriginalExiste && widget.coleta.metodologia != null && widget.coleta.metodologia!.isNotEmpty) {
+          await _criarMetodologiaAutomatica(widget.coleta.metodologia!);
         }
       }
     } catch (e) {
@@ -104,11 +137,11 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = userProvider.currentUser?.id;
 
-      if (userId != null) {
+      if (userId != null && widget.grupoFauna.tipo != null) {
         final metodologia = Metodologia(
           nome: nomeMetodologia,
           descricao: 'Criada automaticamente durante edição',
-          grupoBiologico: widget.projeto.grupoBiologico.code,
+          grupoBiologico: widget.grupoFauna.tipo!.code,
           usuarioId: userId,
           dataCriacao: DateTime.now(),
         );
@@ -117,7 +150,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
 
         // Recarregar metodologias
         final metodologias = await DatabaseHelper.instance.getMetodologiasByGrupo(
-          widget.projeto.grupoBiologico.code,
+          widget.grupoFauna.tipo!.code,
           userId,
         );
 
@@ -136,9 +169,11 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Editar Coleta'),
+        backgroundColor: _grupoColor,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: Icon(Icons.delete, color: Colors.red),
+            icon: Icon(Icons.delete, color: Colors.white),
             onPressed: _confirmarDelete,
           ),
         ],
@@ -156,17 +191,20 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                   padding: EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      Icon(Icons.location_on, color: Color(0xFF8D6E63)),
+                      Icon(Icons.location_on, color: _grupoColor),
                       SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ponto: ${widget.ponto.nome}',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text('Grupo: ${widget.projeto.grupoBiologico.displayName}'),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Ponto: ${widget.ponto.nome ?? "Sem nome"}',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text('Grupo: ${widget.grupoFauna.nomeExibicao}'),
+                            Text('Campanha: ${widget.campanha.nomeExibicao}'),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -183,7 +221,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                       padding: EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          CircularProgressIndicator(),
+                          CircularProgressIndicator(color: _grupoColor),
                           SizedBox(width: 16),
                           Text('Carregando metodologias...'),
                         ],
@@ -194,7 +232,10 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                       decoration: InputDecoration(
                         labelText: 'Metodologia',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.science),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: _grupoColor, width: 2),
+                        ),
+                        prefixIcon: Icon(Icons.science, color: _grupoColor),
                       ),
                       value: _metodologia,
                       items: [
@@ -211,12 +252,12 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                           value: "CRIAR_NOVO",
                           child: Row(
                             children: [
-                              Icon(Icons.add, size: 16, color: Color(0xFF8D6E63)),
+                              Icon(Icons.add, size: 16, color: _grupoColor),
                               SizedBox(width: 8),
                               Text(
                                 'Criar novo método...',
                                 style: TextStyle(
-                                  color: Color(0xFF8D6E63),
+                                  color: _grupoColor,
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
@@ -242,7 +283,8 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                     ),
 
                   // Aviso se metodologia foi criada automaticamente
-                  if (!_metodologiaOriginalExiste && !_isLoadingMetodologias && widget.coleta.metodologia.isNotEmpty)
+                  if (!_metodologiaOriginalExiste && !_isLoadingMetodologias &&
+                      widget.coleta.metodologia != null && widget.coleta.metodologia!.isNotEmpty)
                     Padding(
                       padding: EdgeInsets.only(top: 8),
                       child: Container(
@@ -273,16 +315,15 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                       padding: EdgeInsets.only(top: 8),
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ManageMetodologiasScreen(projeto: widget.projeto),
-                            ),
-                          ).then((_) => _loadMetodologias());
+                          // TODO: Adaptar ManageMetodologiasScreen para nova estrutura
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Tela de gerenciar metodologias em adaptação')),
+                          );
                         },
                         icon: Icon(Icons.science),
                         label: Text('Gerenciar Métodos'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Color(0xFF8D6E63),
+                          foregroundColor: _grupoColor,
                         ),
                       ),
                     ),
@@ -296,7 +337,10 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                 decoration: InputDecoration(
                   labelText: 'Espécie (nome científico)',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.pets),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: _grupoColor, width: 2),
+                  ),
+                  prefixIcon: Icon(Icons.pets, color: _grupoColor),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -313,7 +357,10 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                 decoration: InputDecoration(
                   labelText: 'Nome popular (opcional)',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.label),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: _grupoColor, width: 2),
+                  ),
+                  prefixIcon: Icon(Icons.label, color: _grupoColor),
                 ),
               ),
               SizedBox(height: 16),
@@ -324,7 +371,10 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                 decoration: InputDecoration(
                   labelText: 'Quantidade',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.numbers),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: _grupoColor, width: 2),
+                  ),
+                  prefixIcon: Icon(Icons.numbers, color: _grupoColor),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
@@ -349,7 +399,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.camera_alt, color: Color(0xFF8D6E63)),
+                          Icon(Icons.camera_alt, color: _grupoColor),
                           SizedBox(width: 8),
                           Text(
                             'Foto do Exemplar',
@@ -400,6 +450,9 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                               onPressed: () => _capturarFoto(ImageSource.camera),
                               icon: Icon(Icons.camera),
                               label: Text('Câmera'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _grupoColor,
+                              ),
                             ),
                           ),
                           SizedBox(width: 8),
@@ -408,6 +461,9 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                               onPressed: () => _capturarFoto(ImageSource.gallery),
                               icon: Icon(Icons.photo_library),
                               label: Text('Galeria'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _grupoColor,
+                              ),
                             ),
                           ),
                         ],
@@ -435,7 +491,10 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                 decoration: InputDecoration(
                   labelText: 'Observações (opcional)',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.note),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: _grupoColor, width: 2),
+                  ),
+                  prefixIcon: Icon(Icons.note, color: _grupoColor),
                 ),
                 maxLines: 3,
               ),
@@ -448,6 +507,9 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       child: Text('Cancelar'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey[600],
+                      ),
                     ),
                   ),
                   SizedBox(width: 16),
@@ -456,7 +518,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
                       onPressed: _salvarAlteracoes,
                       child: Text('Salvar'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF8D6E63),
+                        backgroundColor: _grupoColor,
                         foregroundColor: Colors.white,
                       ),
                     ),
@@ -476,6 +538,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text('Nova Metodologia'),
         content: TextField(
           controller: nomeController,
@@ -500,7 +563,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
             },
             child: Text('Criar'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF8D6E63),
+              backgroundColor: _grupoColor,
               foregroundColor: Colors.white,
             ),
           ),
@@ -514,11 +577,11 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = userProvider.currentUser?.id;
 
-      if (userId != null) {
+      if (userId != null && widget.grupoFauna.tipo != null) {
         final metodologia = Metodologia(
           nome: nome,
           descricao: null,
-          grupoBiologico: widget.projeto.grupoBiologico.code,
+          grupoBiologico: widget.grupoFauna.tipo!.code,
           usuarioId: userId,
           dataCriacao: DateTime.now(),
         );
@@ -533,13 +596,13 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Metodologia "$nome" criada e selecionada!'),
-            backgroundColor: Color(0xFF8D6E63),
+            backgroundColor: _grupoColor,
           ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao criar metodologia: $e')),
+        SnackBar(content: Text('Erro ao criar metodologia: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -560,7 +623,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao capturar foto: $e')),
+        SnackBar(content: Text('Erro ao capturar foto: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -595,11 +658,11 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
 
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Coleta atualizada com sucesso!')),
+          SnackBar(content: Text('Coleta atualizada com sucesso!'), backgroundColor: Colors.green),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
+          SnackBar(content: Text('Erro ao salvar: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -609,6 +672,7 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text('Excluir Coleta'),
         content: Text('Tem certeza que deseja excluir esta coleta?'),
         actions: [
@@ -637,12 +701,12 @@ class _EditColetaScreenState extends State<EditColetaScreen> {
       Navigator.pop(context); // Fechar dialog
       Navigator.pop(context); // Voltar para lista de coletas
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Coleta excluída com sucesso!')),
+        SnackBar(content: Text('Coleta excluída com sucesso!'), backgroundColor: Colors.green),
       );
     } catch (e) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao excluir: $e')),
+        SnackBar(content: Text('Erro ao excluir: $e'), backgroundColor: Colors.red),
       );
     }
   }

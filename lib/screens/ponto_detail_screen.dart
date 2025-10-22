@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/projeto.dart';
+import '../models/grupo_fauna.dart';
+import '../models/campanha.dart';
 import '../models/ponto_coleta.dart';
 import '../models/coleta.dart';
+import '../models/enums.dart';
 import '../providers/project_provider.dart';
 import 'create_coleta_screen.dart';
 import 'edit_ponto_screen.dart';
@@ -13,10 +16,14 @@ import '../utils/database_helper.dart';
 class PontoDetailScreen extends StatefulWidget {
   final PontoColeta ponto;
   final Projeto projeto;
+  final GrupoFauna grupoFauna;
+  final Campanha campanha;
 
   PontoDetailScreen({
     required this.ponto,
     required this.projeto,
+    required this.grupoFauna,
+    required this.campanha,
   });
 
   @override
@@ -30,6 +37,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
 
   // Map para agrupar coletas por metodologia
   Map<String, List<Coleta>> _coletasAgrupadas = {};
+
+  Color get _grupoColor => _getColorForGrupo(widget.grupoFauna.tipo);
 
   @override
   void initState() {
@@ -51,6 +60,31 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
     super.dispose();
   }
 
+  Color _getColorForGrupo(GrupoBiologico? tipo) {
+    if (tipo == null) return Color(0xFF8D6E63);
+
+    switch (tipo) {
+      case GrupoBiologico.ictiofauna:
+        return Color(0xFF1976D2);
+      case GrupoBiologico.herpetofauna:
+        return Color(0xFF8D6E63);
+      case GrupoBiologico.avifauna:
+        return Color(0xFF388E3C);
+      case GrupoBiologico.mastofauna:
+        return Color(0xFF7B1FA2);
+      case GrupoBiologico.entomofauna:
+        return Color(0xFFFF8F00);
+      case GrupoBiologico.macroinvertebrados:
+        return Color(0xFF00796B);
+      case GrupoBiologico.flora:
+        return Color(0xFF558B2F);
+      case GrupoBiologico.zooplancton:
+        return Color(0xFF0097A7);
+      case GrupoBiologico.fitoplancton:
+        return Color(0xFF43A047);
+    }
+  }
+
   Future<void> _loadColetas() async {
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
     await projectProvider.loadColetasByPonto(widget.ponto.id!);
@@ -66,13 +100,13 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
       if (_coletasAgrupadas.containsKey(coleta.metodologia)) {
         _coletasAgrupadas[coleta.metodologia]!.add(coleta);
       } else {
-        _coletasAgrupadas[coleta.metodologia] = [coleta];
+        _coletasAgrupadas[coleta.metodologia ?? ''] = [coleta];
       }
     }
 
     // Ordenar as espécies dentro de cada metodologia
     _coletasAgrupadas.forEach((metodologia, especies) {
-      especies.sort((a, b) => a.especie.compareTo(b.especie));
+      especies.sort((a, b) => (a.especie ?? '').compareTo(b.especie ?? ''));
     });
 
     setState(() {});
@@ -84,7 +118,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
       backgroundColor: Color(0xFFF8F6F4),
       body: CustomScrollView(
         slivers: [
-          // AppBar moderna com gradiente
+          // AppBar moderna com gradiente (cor do grupo)
           SliverAppBar(
             expandedHeight: 120,
             pinned: true,
@@ -95,8 +129,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF8D6E63),
-                      Color(0xFF5D4037),
+                      _grupoColor,
+                      _grupoColor.withOpacity(0.8),
                     ],
                   ),
                 ),
@@ -114,7 +148,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                 ),
               ),
               title: Text(
-                widget.ponto.nome,
+                widget.ponto.nome ?? 'Ponto',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -132,7 +166,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit, color: Color(0xFF8D6E63), size: 20),
+                        Icon(Icons.edit, color: _grupoColor, size: 20),
                         SizedBox(width: 12),
                         Text('Editar Ponto'),
                       ],
@@ -142,7 +176,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                     value: 'info',
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Color(0xFF8D6E63), size: 20),
+                        Icon(Icons.info_outline, color: _grupoColor, size: 20),
                         SizedBox(width: 12),
                         Text('Informações'),
                       ],
@@ -178,7 +212,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                     child: Padding(
                       padding: EdgeInsets.all(40),
                       child: CircularProgressIndicator(
-                        color: Color(0xFF8D6E63),
+                        color: _grupoColor,
                       ),
                     ),
                   ),
@@ -224,6 +258,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               builder: (_) => CreateColetaScreen(
                 ponto: widget.ponto,
                 projeto: widget.projeto,
+                grupoFauna: widget.grupoFauna,
+                campanha: widget.campanha,
               ),
             ),
           ).then((_) => _loadColetas());
@@ -247,7 +283,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFF8D6E63).withOpacity(0.1),
+            color: _grupoColor.withOpacity(0.1),
             blurRadius: 20,
             offset: Offset(0, 4),
           ),
@@ -261,12 +297,12 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Color(0xFF8D6E63).withOpacity(0.1),
+                  color: _grupoColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   Icons.location_on,
-                  color: Color(0xFF8D6E63),
+                  color: _grupoColor,
                   size: 20,
                 ),
               ),
@@ -291,28 +327,36 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               Icons.my_location,
               'Coordenadas',
               hasCoordinates
-                  ? '${widget.ponto.latitude.toStringAsFixed(6)}, ${widget.ponto.longitude.toStringAsFixed(6)}'
+                  ? '${widget.ponto.latitude?.toStringAsFixed(6) ?? '0.0'}, ${widget.ponto.longitude?.toStringAsFixed(6) ?? '0.0'}'
                   : 'Não informadas',
-              hasCoordinates ? Color(0xFF8D6E63) : Colors.orange,
+              hasCoordinates ? _grupoColor : Colors.orange,
             ),
             _buildInfoItem(
               Icons.access_time,
               'Data/Hora',
-              '${widget.ponto.dataHora.day}/${widget.ponto.dataHora.month}/${widget.ponto.dataHora.year} ${widget.ponto.dataHora.hour}:${widget.ponto.dataHora.minute.toString().padLeft(2, '0')}',
-              Color(0xFF8D6E63),
+              widget.ponto.dataHora != null
+                  ? '${widget.ponto.dataHora!.day}/${widget.ponto.dataHora!.month}/${widget.ponto.dataHora!.year} ${widget.ponto.dataHora!.hour}:${widget.ponto.dataHora!.minute.toString().padLeft(2, '0')}'
+                  : 'Data não informada',
+              _grupoColor,
             ),
             _buildInfoItem(
               Icons.science,
-              'Projeto',
-              '${widget.projeto.nome} (${widget.projeto.grupoBiologico.displayName})',
-              Color(0xFF8D6E63),
+              'Grupo',
+              widget.grupoFauna.nomeExibicao,
+              _grupoColor,
+            ),
+            _buildInfoItem(
+              Icons.calendar_today,
+              'Campanha',
+              widget.campanha.nomeExibicao,
+              _grupoColor,
             ),
             if (widget.ponto.observacoes != null && widget.ponto.observacoes!.isNotEmpty)
               _buildInfoItem(
                 Icons.note,
                 'Observações',
                 widget.ponto.observacoes!,
-                Color(0xFF8D6E63),
+                _grupoColor,
               ),
           ]),
         ],
@@ -366,7 +410,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
     final totalMetodologias = _coletasAgrupadas.length;
     final totalColetas = _coletasAgrupadas.values
         .expand((coletas) => coletas)
-        .fold(0, (sum, coleta) => sum + coleta.quantidade);
+        .fold(0, (sum, coleta) => sum + (coleta.quantidade ?? 0));
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -374,7 +418,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
         children: [
           Icon(
             Icons.science,
-            color: Color(0xFF8D6E63),
+            color: _grupoColor,
             size: 20,
           ),
           SizedBox(width: 8),
@@ -392,14 +436,14 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
             Container(
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Color(0xFF8D6E63).withOpacity(0.1),
+                color: _grupoColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '$totalMetodologias métodos • $totalColetas exemplares',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF8D6E63),
+                  color: _grupoColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -451,7 +495,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
   }
 
   Widget _buildMetodologiaCard(String metodologia, List<Coleta> coletas) {
-    final totalExemplares = coletas.fold(0, (sum, coleta) => sum + coleta.quantidade);
+    final totalExemplares = coletas.fold(0, (sum, coleta) => sum + (coleta.quantidade ?? 0));
     final totalEspecies = coletas.length;
 
     return Container(
@@ -460,7 +504,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFF8D6E63).withOpacity(0.08),
+            color: _grupoColor.withOpacity(0.08),
             blurRadius: 10,
             offset: Offset(0, 2),
           ),
@@ -473,7 +517,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF8D6E63), Color(0xFF5D4037)],
+                colors: [_grupoColor, _grupoColor.withOpacity(0.8)],
               ),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(16),
@@ -563,7 +607,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  coleta.especie,
+                  coleta.especie ?? '',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -615,7 +659,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               SizedBox(width: 8),
               _buildActionButton(
                 Icons.visibility,
-                Color(0xFF8D6E63),
+                _grupoColor,
                 'Ver',
                     () => _showColetaDetail(coleta),
               ),
@@ -725,6 +769,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
         builder: (_) => CreateColetaScreen(
           ponto: widget.ponto,
           projeto: widget.projeto,
+          grupoFauna: widget.grupoFauna,
+          campanha: widget.campanha,
         ),
       ),
     ).then((_) => _loadColetas());
@@ -737,6 +783,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
           coleta: coleta,
           ponto: widget.ponto,
           projeto: widget.projeto,
+          grupoFauna: widget.grupoFauna,
+          campanha: widget.campanha,
         ),
       ),
     ).then((_) => _loadColetas());
@@ -750,6 +798,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
             builder: (_) => EditPontoScreen(
               ponto: widget.ponto,
               projeto: widget.projeto,
+             // grupoFauna: widget.grupoFauna,
+             // campanha: widget.campanha,
             ),
           ),
         ).then((_) => _loadColetas());
@@ -785,14 +835,14 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.science, color: Color(0xFF8D6E63), size: 18),
+                  Icon(Icons.science, color: _grupoColor, size: 18),
                   SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          coleta.especie,
+                          coleta.especie?? '',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF5D4037),
@@ -894,43 +944,44 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
 
   void _showPontoInfo() {
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.info_outline, color: Color(0xFF8D6E63)),
-            SizedBox(width: 8),
-            Text('Detalhes do Ponto'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDialogInfoRow('Nome', widget.ponto.nome),
-            _buildDialogInfoRow('Projeto', widget.projeto.nome),
-            _buildDialogInfoRow('Grupo', widget.projeto.grupoBiologico.displayName),
+        context: context,
+        builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Row(
+              children: [
+                Icon(Icons.info_outline, color: _grupoColor),
+                SizedBox(width: 8),
+                Text('Detalhes do Ponto'),
+              ],
+            ),
+            content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                _buildDialogInfoRow('Nome', widget.ponto.nome ?? 'Sem nome'),
+            _buildDialogInfoRow('Projeto', widget.projeto.nome ?? ''),
+            _buildDialogInfoRow('Grupo', widget.grupoFauna.nomeExibicao),
+            _buildDialogInfoRow('Campanha', widget.campanha.nomeExibicao),
             if (widget.ponto.latitude != 0.0 && widget.ponto.longitude != 0.0) ...[
-              _buildDialogInfoRow('Latitude', widget.ponto.latitude.toStringAsFixed(8)),
-              _buildDialogInfoRow('Longitude', widget.ponto.longitude.toStringAsFixed(8)),
-            ] else ...[
+              _buildDialogInfoRow('Latitude', widget.ponto.latitude?.toStringAsFixed(8) ?? 'Não informada'),
+              _buildDialogInfoRow('Longitude', widget.ponto.longitude?.toStringAsFixed(8) ?? 'Não informada'),
+    ] else ...[
               _buildDialogInfoRow('Coordenadas', 'Não informadas', isWarning: true),
             ],
-            if (widget.ponto.observacoes != null && widget.ponto.observacoes!.isNotEmpty)
-              _buildDialogInfoRow('Observações', widget.ponto.observacoes!),
+                  if (widget.ponto.observacoes != null && widget.ponto.observacoes!.isNotEmpty)
+                    _buildDialogInfoRow('Observações', widget.ponto.observacoes!),
+                ],
+            ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Fechar'),
+              style: TextButton.styleFrom(
+                foregroundColor: _grupoColor,
+              ),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Fechar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Color(0xFF8D6E63),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1060,7 +1111,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
 
                       // Informações organizadas em cards
                       _buildDetailCard('Identificação', [
-                        _buildDetailRow('Espécie', coleta.especie),
+                        _buildDetailRow('Espécie', coleta.especie?? ''),
                         if (coleta.nomePopular != null && coleta.nomePopular!.isNotEmpty)
                           _buildDetailRow('Nome popular', coleta.nomePopular!),
                       ]),
@@ -1068,7 +1119,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
                       SizedBox(height: 16),
 
                       _buildDetailCard('Coleta', [
-                        _buildDetailRow('Metodologia', coleta.metodologia),
+                        _buildDetailRow('Metodologia', coleta.metodologia?? ''),
                         _buildDetailRow('Quantidade', coleta.quantidade.toString()),
                         _buildDetailRow(
                           'Data/Hora',
@@ -1116,7 +1167,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF8D6E63),
+              color: _grupoColor,
             ),
           ),
           SizedBox(height: 12),

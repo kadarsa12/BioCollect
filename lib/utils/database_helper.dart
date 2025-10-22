@@ -368,12 +368,12 @@ class DatabaseHelper {
     return await db.insert('pontos_coleta', ponto.toMap());
   }
 
-  Future<List<PontoColeta>> getPontosByProjeto(int projetoId) async {
+  Future<List<PontoColeta>> getPontosByCampanha(int campanhaId) async {
     final db = await database;
     final maps = await db.query(
       'pontos_coleta',
-      where: 'projeto_id = ?',
-      whereArgs: [projetoId],
+      where: 'campanha_id = ?',
+      whereArgs: [campanhaId],
       orderBy: 'data_hora DESC',
     );
     return List.generate(maps.length, (i) => PontoColeta.fromMap(maps[i]));

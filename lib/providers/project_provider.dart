@@ -188,12 +188,13 @@ class ProjectProvider with ChangeNotifier {
 
   // ===== MÉTODOS PARA PONTOS DE COLETA =====
 
-  Future<void> loadPontosByProjeto(int projetoId) async {
+  // ✅ NOVO: Carregar pontos por campanha
+  Future<void> loadPontosByCampanha(int campanhaId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      _pontosColeta = await DatabaseHelper.instance.getPontosByProjeto(projetoId);
+      _pontosColeta = await DatabaseHelper.instance.getPontosByCampanha(campanhaId);
     } catch (e) {
       print('Erro ao carregar pontos: $e');
     }
@@ -202,17 +203,18 @@ class ProjectProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // ✅ ATUALIZADO: Criar ponto com campanhaId
   Future<int?> createPontoColeta({
-    required String nome,
-    required int projetoId,
-    required double latitude,
-    required double longitude,
+    required int campanhaId, // ✅ MUDOU de projetoId
+    String? nome,
+    double? latitude,
+    double? longitude,
     String? observacoes,
   }) async {
     try {
       final ponto = PontoColeta(
         nome: nome,
-        projetoId: projetoId,
+        campanhaId: campanhaId, // ✅ MUDOU
         latitude: latitude,
         longitude: longitude,
         dataHora: DateTime.now(),
@@ -220,7 +222,7 @@ class ProjectProvider with ChangeNotifier {
       );
 
       final id = await DatabaseHelper.instance.insertPontoColeta(ponto);
-      await loadPontosByProjeto(projetoId);
+      await loadPontosByCampanha(campanhaId); // ✅ MUDOU
       return id;
     } catch (e) {
       print('Erro ao criar ponto: $e');
@@ -256,10 +258,10 @@ class ProjectProvider with ChangeNotifier {
     try {
       final coleta = Coleta(
         pontoColetaId: pontoColetaId,
-        metodologia: metodologia?? '',
-        especie: especie?? '',
+        metodologia: metodologia ?? '',
+        especie: especie ?? '',
         nomePopular: nomePopular,
-        quantidade: quantidade?? 0,
+        quantidade: quantidade ?? 0,
         caminhoFoto: caminhoFoto,
         dataHora: DateTime.now(),
         observacoes: observacoes,

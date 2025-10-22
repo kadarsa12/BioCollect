@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/metodologia.dart';
-import '../models/projeto.dart';
+import '../models/grupo_fauna.dart';
 import '../models/enums.dart';
 import '../providers/user_provider.dart';
 import '../utils/database_helper.dart';
 
 class ManageMetodologiasScreen extends StatefulWidget {
-  final Projeto projeto;
+  final GrupoFauna grupoFauna; // ✅ MUDOU de Projeto para GrupoFauna
 
-  ManageMetodologiasScreen({required this.projeto});
+  ManageMetodologiasScreen({required this.grupoFauna});
 
   @override
   _ManageMetodologiasScreenState createState() => _ManageMetodologiasScreenState();
@@ -19,10 +19,37 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
   List<Metodologia> _metodologias = [];
   bool _isLoading = true;
 
+  Color get _grupoColor => _getColorForGrupo(widget.grupoFauna.tipo);
+
   @override
   void initState() {
     super.initState();
     _loadMetodologias();
+  }
+
+  Color _getColorForGrupo(GrupoBiologico? tipo) {
+    if (tipo == null) return Color(0xFF8D6E63);
+
+    switch (tipo) {
+      case GrupoBiologico.ictiofauna:
+        return Color(0xFF1976D2);
+      case GrupoBiologico.herpetofauna:
+        return Color(0xFF8D6E63);
+      case GrupoBiologico.avifauna:
+        return Color(0xFF388E3C);
+      case GrupoBiologico.mastofauna:
+        return Color(0xFF7B1FA2);
+      case GrupoBiologico.entomofauna:
+        return Color(0xFFFF8F00);
+      case GrupoBiologico.macroinvertebrados:
+        return Color(0xFF00796B);
+      case GrupoBiologico.flora:
+        return Color(0xFF558B2F);
+      case GrupoBiologico.zooplancton:
+        return Color(0xFF0097A7);
+      case GrupoBiologico.fitoplancton:
+        return Color(0xFF43A047);
+    }
   }
 
   Future<void> _loadMetodologias() async {
@@ -34,9 +61,9 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = userProvider.currentUser?.id;
 
-      if (userId != null) {
+      if (userId != null && widget.grupoFauna.tipo != null) {
         final metodologias = await DatabaseHelper.instance.getMetodologiasByGrupo(
-          widget.projeto.grupoBiologico.code,
+          widget.grupoFauna.tipo!.code, // ✅ MUDOU
           userId,
         );
 
@@ -57,17 +84,19 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Métodos - ${widget.projeto.grupoBiologico.displayName}'),
+        title: Text('Métodos - ${widget.grupoFauna.nomeExibicao}'), // ✅ MUDOU
+        backgroundColor: _grupoColor,
+        foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: _grupoColor))
           : _metodologias.isEmpty
           ? _buildEmptyState()
           : _buildMetodologiasList(),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateMetodologiaDialog,
         child: Icon(Icons.add),
-        backgroundColor: Color(0xFF8D6E63),
+        backgroundColor: _grupoColor,
       ),
     );
   }
@@ -105,7 +134,9 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
   }
 
   Widget _buildSuggestionCard() {
-    final sugestoes = widget.projeto.grupoBiologico.getMetodologias();
+    if (widget.grupoFauna.tipo == null) return SizedBox.shrink();
+
+    final sugestoes = widget.grupoFauna.tipo!.getMetodologias(); // ✅ MUDOU
 
     // Filtrar sugestões que já foram criadas
     final sugestoesDisponiveis = sugestoes.where((sugestao) {
@@ -130,13 +161,15 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.lightbulb, color: Color(0xFF8D6E63)),
+              Icon(Icons.lightbulb, color: _grupoColor),
               SizedBox(width: 8),
-              Text(
-                'Sugestões para ${widget.projeto.grupoBiologico.displayName}:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF5D4037),
+              Expanded(
+                child: Text(
+                  'Sugestões para ${widget.grupoFauna.nomeExibicao}:', // ✅ MUDOU
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF5D4037),
+                  ),
                 ),
               ),
             ],
@@ -151,7 +184,7 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
                 onPressed: () => _createSuggestedMethod(metodo),
                 backgroundColor: Color(0xFFEFEBE9),
                 labelStyle: TextStyle(
-                  color: Color(0xFF8D6E63),
+                  color: _grupoColor,
                   fontSize: 12,
                 ),
               );
@@ -196,7 +229,7 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
       margin: EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Color(0xFF8D6E63),
+          backgroundColor: _grupoColor,
           child: Icon(
             Icons.science,
             color: Colors.white,
@@ -225,6 +258,7 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text('Nova Metodologia'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -269,7 +303,7 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
             },
             child: Text('Criar'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF8D6E63),
+              backgroundColor: _grupoColor,
               foregroundColor: Colors.white,
             ),
           ),
@@ -287,11 +321,11 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = userProvider.currentUser?.id;
 
-      if (userId != null) {
+      if (userId != null && widget.grupoFauna.tipo != null) {
         final metodologia = Metodologia(
           nome: nome,
           descricao: descricao,
-          grupoBiologico: widget.projeto.grupoBiologico.code,
+          grupoBiologico: widget.grupoFauna.tipo!.code, // ✅ MUDOU
           usuarioId: userId,
           dataCriacao: DateTime.now(),
         );
@@ -302,13 +336,16 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Metodologia "$nome" criada com sucesso!'),
-            backgroundColor: Color(0xFF8D6E63),
+            backgroundColor: _grupoColor,
           ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao criar metodologia: $e')),
+        SnackBar(
+          content: Text('Erro ao criar metodologia: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -317,6 +354,7 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text('Excluir Metodologia'),
         content: Text('Tem certeza que deseja excluir "${metodologia.nome}"?'),
         actions: [
@@ -344,12 +382,15 @@ class _ManageMetodologiasScreenState extends State<ManageMetodologiasScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Metodologia excluída com sucesso!'),
-          backgroundColor: Color(0xFF8D6E63),
+          backgroundColor: _grupoColor,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao excluir metodologia: $e')),
+        SnackBar(
+          content: Text('Erro ao excluir metodologia: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

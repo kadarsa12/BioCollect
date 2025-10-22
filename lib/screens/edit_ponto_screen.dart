@@ -48,8 +48,8 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
     _nomeController = TextEditingController(text: widget.ponto.nome);
     _observacoesController = TextEditingController(text: widget.ponto.observacoes ?? '');
 
-    _currentLatitude = widget.ponto.latitude;
-    _currentLongitude = widget.ponto.longitude;
+    _currentLatitude = widget.ponto.latitude ?? 0;
+    _currentLongitude = widget.ponto.longitude ?? 0;
 
     if (_currentLatitude != 0.0 && _currentLongitude != 0.0) {
       _loadCoordinatesFromDecimal(_currentLatitude, _currentLongitude);
@@ -675,7 +675,7 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
 
         // Recarregar lista
         final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-        await projectProvider.loadPontosByProjeto(widget.projeto.id!);
+        await projectProvider.loadPontosByCampanha(widget.projeto.id!);
 
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -736,7 +736,7 @@ class _EditPontoScreenState extends State<EditPontoScreen> {
       await db.delete('pontos_coleta', where: 'id = ?', whereArgs: [widget.ponto.id]);
 
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-      await projectProvider.loadPontosByProjeto(widget.projeto.id!);
+      await projectProvider.loadPontosByCampanha(widget.projeto.id!);
 
       Navigator.pop(context); // Fechar dialog
       Navigator.pop(context); // Voltar para lista

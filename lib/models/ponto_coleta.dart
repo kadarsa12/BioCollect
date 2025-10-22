@@ -2,20 +2,20 @@ import 'enums.dart';
 
 class PontoColeta {
   final int? id;
-  final String nome;
-  final int projetoId;
-  final double latitude;
-  final double longitude;
-  final DateTime dataHora;
+  final String? nome;
+  final int campanhaId; // ✅ MUDOU de projetoId para campanhaId
+  final double? latitude;
+  final double? longitude;
+  final DateTime? dataHora;
   final String? observacoes;
 
   PontoColeta({
     this.id,
-    required this.nome,
-    required this.projetoId,
-    required this.latitude,
-    required this.longitude,
-    required this.dataHora,
+    this.nome,
+    required this.campanhaId, // ✅ MUDOU
+    this.latitude,
+    this.longitude,
+    this.dataHora,
     this.observacoes,
   });
 
@@ -23,10 +23,10 @@ class PontoColeta {
     return {
       'id': id,
       'nome': nome,
-      'projeto_id': projetoId,
+      'campanha_id': campanhaId, // ✅ MUDOU
       'latitude': latitude,
       'longitude': longitude,
-      'data_hora': dataHora.toIso8601String(),
+      'data_hora': dataHora?.toIso8601String(),
       'observacoes': observacoes,
     };
   }
@@ -35,11 +35,11 @@ class PontoColeta {
     return PontoColeta(
       id: map['id'],
       nome: map['nome'],
-      projetoId: map['projeto_id'],
+      campanhaId: map['campanha_id'], // ✅ MUDOU
       latitude: map['latitude'],
       longitude: map['longitude'],
-      dataHora: DateTime.parse(map['data_hora']),
-      observacoes: map['observacoes']
+      dataHora: map['data_hora'] != null ? DateTime.parse(map['data_hora']) : null,
+      observacoes: map['observacoes'],
     );
   }
 }

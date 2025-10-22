@@ -47,7 +47,7 @@ class ExcelExporter {
 
       // Buscar dados do projeto
       print('Buscando pontos do projeto...');
-      final pontos = await DatabaseHelper.instance.getPontosByProjeto(projeto.id!);
+      final pontos = await DatabaseHelper.instance.getPontosByCampanha(projeto.id!);
       print('Encontrados ${pontos.length} pontos');
 
       int currentRow = 2; // Linha 1 é o cabeçalho
@@ -237,7 +237,7 @@ class ExcelExporter {
         return campanha.nome ?? campanha.nomeExibicao;
       case 'data':
         final data = coleta?.dataHora ?? ponto.dataHora;
-        return dateFormat.format(data);
+        return data != null ? dateFormat.format(data) : 'Data não informada';
       case 'periodo':
         return campanha.periodo ?? '';
       case 'municipio':
