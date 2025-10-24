@@ -2,6 +2,7 @@ import 'enums.dart';
 
 class Campanha {
   final int? id;
+  final String? uuid; // ✅ novo campo
   final int grupoFaunaId;
   final String? nome;
   final String? periodo; // Seca, Cheia, Transição
@@ -9,11 +10,12 @@ class Campanha {
   final DateTime? dataFim;
   final StatusCampanha status;
   final String? observacoes;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime dataCriacao;      // 🔄 renomeado
+  final DateTime dataAtualizacao;  // 🔄 renomeado
 
   Campanha({
     this.id,
+    this.uuid,
     required this.grupoFaunaId,
     this.nome,
     this.periodo,
@@ -21,12 +23,11 @@ class Campanha {
     this.dataFim,
     this.status = StatusCampanha.ativa,
     this.observacoes,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+    DateTime? dataCriacao,
+    DateTime? dataAtualizacao,
+  })  : dataCriacao = dataCriacao ?? DateTime.now(),
+        dataAtualizacao = dataAtualizacao ?? DateTime.now();
 
-  // Nome para exibir na tela
   String get nomeExibicao {
     if (nome != null && nome!.isNotEmpty) {
       return nome!;
@@ -40,6 +41,7 @@ class Campanha {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'uuid': uuid, // ✅ incluído
       'grupo_fauna_id': grupoFaunaId,
       'nome': nome,
       'periodo': periodo,
@@ -47,34 +49,33 @@ class Campanha {
       'data_fim': dataFim?.toIso8601String(),
       'status': status.value,
       'observacoes': observacoes,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'data_criacao': dataCriacao.toIso8601String(),         // 🔄 nome ajustado
+      'data_atualizacao': dataAtualizacao.toIso8601String(), // 🔄 nome ajustado
     };
   }
 
   factory Campanha.fromMap(Map<String, dynamic> map) {
     return Campanha(
       id: map['id'],
+      uuid: map['uuid'], // ✅ incluído
       grupoFaunaId: map['grupo_fauna_id'],
       nome: map['nome'],
       periodo: map['periodo'],
       dataInicio: DateTime.parse(map['data_inicio']),
-      dataFim: map['data_fim'] != null
-          ? DateTime.parse(map['data_fim'])
-          : null,
+      dataFim: map['data_fim'] != null ? DateTime.parse(map['data_fim']) : null,
       status: StatusCampanha.values.firstWhere(
             (e) => e.value == (map['status'] ?? 'ATIVA'),
         orElse: () => StatusCampanha.ativa,
       ),
       observacoes: map['observacoes'],
-      createdAt: DateTime.parse(map['created_at']),
-      updatedAt: DateTime.parse(map['updated_at']),
+      dataCriacao: DateTime.parse(map['data_criacao']),
+      dataAtualizacao: DateTime.parse(map['data_atualizacao']),
     );
   }
 
-  // Método para copiar com alterações
   Campanha copyWith({
     int? id,
+    String? uuid,
     int? grupoFaunaId,
     String? nome,
     String? periodo,
@@ -82,11 +83,12 @@ class Campanha {
     DateTime? dataFim,
     StatusCampanha? status,
     String? observacoes,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    DateTime? dataCriacao,
+    DateTime? dataAtualizacao,
   }) {
     return Campanha(
       id: id ?? this.id,
+      uuid: uuid ?? this.uuid, // ✅ incluído
       grupoFaunaId: grupoFaunaId ?? this.grupoFaunaId,
       nome: nome ?? this.nome,
       periodo: periodo ?? this.periodo,
@@ -94,8 +96,8 @@ class Campanha {
       dataFim: dataFim ?? this.dataFim,
       status: status ?? this.status,
       observacoes: observacoes ?? this.observacoes,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      dataCriacao: dataCriacao ?? this.dataCriacao,
+      dataAtualizacao: dataAtualizacao ?? this.dataAtualizacao,
     );
   }
 }

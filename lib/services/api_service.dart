@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/projeto.dart';
 import '../models/grupo_fauna.dart';
@@ -6,14 +7,57 @@ import '../models/campanha.dart';
 import '../models/ponto_coleta.dart';
 import '../models/coleta.dart';
 
-class ApiService {
-  // ALTERE para seu IP local (encontre com ipconfig)
-  static const String baseUrl = 'http://192.168.18.5:8000';
 
-  // Headers padrão
+class ApiService {
+  // ===== CONFIGURAÇÃO BASE =====
+  static const String baseUrl = 'http://192.168.18.5:8000'; // ajuste conforme IP local
+  static String? _token;
+
+  // ===== TOKEN =====
+  static void setToken(String token) {
+    _token = token;
+  }
+
+  static void clearToken() {
+    _token = null;
+  }
+
+  // ===== HEADERS =====
   static Map<String, String> get headers => {
     'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
   };
+
+  // ===== LOGIN =====
+  static Future<String?> login(String email, String senha) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/login'),
+        body: {'email': email, 'senha': senha},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['access_token'];
+      } else {
+        return null;
+      }
+    } catch (e) {
+      throw Exception('Erro de conexão: $e');
+    }
+  }
+
+  // ===== TESTAR CONEXÃO =====
+  static Future<bool> testarConexao() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/'), headers: headers)
+          .timeout(const Duration(seconds: 5));
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
 
   // ===== SYNC PROJETO =====
   static Future<Map<String, dynamic>> syncProjeto(Projeto projeto) async {
@@ -22,12 +66,13 @@ class ApiService {
         Uri.parse('$baseUrl/sync/projeto'),
         headers: headers,
         body: jsonEncode({
+          'uuid': projeto.uuid,
           'nome': projeto.nome,
           'municipio': projeto.municipio,
           'data_inicio': projeto.dataInicio.toIso8601String(),
-          'data_fechamento': projeto.dataFechamento?.toIso8601String(),
-          'status': projeto.status.value,
-          'usuario_id': projeto.usuarioId,
+          'data_fim': projeto.dataFechamento?.toIso8601String(),
+          'status': projeto.status.value, // ✅ usa value
+          'observacoes': projeto.observacoes,
         }),
       );
 
@@ -41,61 +86,75 @@ class ApiService {
     }
   }
 
-  // ===== SYNC GRUPO DE FAUNA =====
-  static Future<Map<String, dynamic>> syncGrupoFauna(
-      GrupoFauna grupo,
-      int projetoIdServidor,
-      ) async {
+  // ===== SYNC GRUPOS DE FAUNA =====
+  static Future<Map<String, dynamic>> syncGruposFauna(
+      int projetoIdServidor, List<GrupoFauna> grupos) async {
     try {
+      final gruposJson = grupos
+          .map((g) => {
+        'uuid': g.uuid,
+        'tipo': g.tipo?.code, // ✅ usa code
+        'nome_customizado': g.nomeCustomizado,
+        'descricao': g.descricao,
+        'data_criacao': g.dataCriacao.toIso8601String(),
+        'data_atualizacao': g.dataAtualizacao.toIso8601String(),
+      })
+          .toList();
+
+      final payload = {
+        'projeto_id': projetoIdServidor,
+        'grupos': gruposJson,
+      };
+
       final response = await http.post(
-        Uri.parse('$baseUrl/sync/grupo-fauna'),
+        Uri.parse('$baseUrl/sync/grupos-fauna'),
         headers: headers,
-        body: jsonEncode({
-          'projeto_id': projetoIdServidor,
-          'tipo': grupo.tipo?.code,
-          'nome_customizado': grupo.nomeCustomizado,
-          'descricao': grupo.descricao,
-          'created_at': grupo.createdAt.toIso8601String(),
-          'updated_at': grupo.updatedAt.toIso8601String(),
-        }),
+        body: jsonEncode(payload),
       );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Erro ao sincronizar grupo: ${response.statusCode}');
+        throw Exception('Erro ao sincronizar grupos: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Erro de conexão: $e');
     }
   }
 
-  // ===== SYNC CAMPANHA =====
-  static Future<Map<String, dynamic>> syncCampanha(
-      Campanha campanha,
-      int grupoFaunaIdServidor,
-      ) async {
+  // ===== SYNC CAMPANHAS =====
+  static Future<Map<String, dynamic>> syncCampanhas(
+      int grupoFaunaIdServidor, List<Campanha> campanhas) async {
     try {
+      final campanhasJson = campanhas
+          .map((c) => {
+        'uuid': c.uuid,
+        'nome': c.nome,
+        'periodo': c.periodo,
+        'data_inicio': c.dataInicio.toIso8601String(),
+        'data_fim': c.dataFim?.toIso8601String(),
+        'status': c.status.value, // ✅ usa value
+        'observacoes': c.observacoes,
+        'data_criacao': c.dataCriacao.toIso8601String(),
+        'data_atualizacao': c.dataAtualizacao.toIso8601String(),
+      })
+          .toList();
+
+      final payload = {
+        'grupo_fauna_id': grupoFaunaIdServidor,
+        'campanhas': campanhasJson,
+      };
+
       final response = await http.post(
-        Uri.parse('$baseUrl/sync/campanha'),
+        Uri.parse('$baseUrl/sync/campanhas'),
         headers: headers,
-        body: jsonEncode({
-          'grupo_fauna_id': grupoFaunaIdServidor,
-          'nome': campanha.nome,
-          'periodo': campanha.periodo,
-          'data_inicio': campanha.dataInicio.toIso8601String(),
-          'data_fim': campanha.dataFim?.toIso8601String(),
-          'status': campanha.status.value,
-          'observacoes': campanha.observacoes,
-          'created_at': campanha.createdAt.toIso8601String(),
-          'updated_at': campanha.updatedAt.toIso8601String(),
-        }),
+        body: jsonEncode(payload),
       );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Erro ao sincronizar campanha: ${response.statusCode}');
+        throw Exception('Erro ao sincronizar campanhas: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Erro de conexão: $e');
@@ -104,23 +163,30 @@ class ApiService {
 
   // ===== SYNC PONTOS DE COLETA =====
   static Future<Map<String, dynamic>> syncPontosColeta(
-      List<PontoColeta> pontos,
-      int campanhaIdServidor,
-      ) async {
+      int campanhaIdServidor, List<PontoColeta> pontos) async {
     try {
-      final pontosJson = pontos.map((ponto) => {
-        'nome': ponto.nome,
+      final pontosJson = pontos
+          .map((p) => {
+        'uuid': p.uuid,
+        'nome': p.nome,
+        'latitude': p.latitude,
+        'longitude': p.longitude,
+        'data_hora': p.dataHora?.toIso8601String(),
+        'observacoes': p.observacoes,
+        'data_criacao': p.dataCriacao.toIso8601String(),
+        'data_atualizacao': p.dataAtualizacao.toIso8601String(),
+      })
+          .toList();
+
+      final payload = {
         'campanha_id': campanhaIdServidor,
-        'latitude': ponto.latitude,
-        'longitude': ponto.longitude,
-        'data_hora': (ponto.dataHora ?? DateTime.now()).toIso8601String(),
-        'observacoes': ponto.observacoes,
-      }).toList();
+        'pontos': pontosJson,
+      };
 
       final response = await http.post(
         Uri.parse('$baseUrl/sync/pontos-coleta'),
         headers: headers,
-        body: jsonEncode(pontosJson),
+        body: jsonEncode(payload),
       );
 
       if (response.statusCode == 200) {
@@ -135,25 +201,37 @@ class ApiService {
 
   // ===== SYNC COLETAS =====
   static Future<Map<String, dynamic>> syncColetas(
-      List<Coleta> coletas,
-      Map<int, int> mapeamentoPontos, // ID local → ID servidor
-      ) async {
+      int pontoIdServidor, List<Coleta> coletas) async {
     try {
-      final coletasJson = coletas.map((coleta) => {
-        'ponto_coleta_id': mapeamentoPontos[coleta.pontoColetaId],
-        'metodologia': coleta.metodologia,
-        'especie': coleta.especie,
-        'nome_popular': coleta.nomePopular,
-        'quantidade': coleta.quantidade,
-        'caminho_foto': coleta.caminhoFoto,
-        'data_hora': coleta.dataHora.toIso8601String(),
-        'observacoes': coleta.observacoes,
+      final coletasJson = coletas.map((c) {
+        String? fotoBase64;
+        if (c.caminhoFoto != null && File(c.caminhoFoto!).existsSync()) {
+          final bytes = File(c.caminhoFoto!).readAsBytesSync();
+          fotoBase64 = base64Encode(bytes);
+        }
+
+        return {
+          'uuid': c.uuid,
+          'metodologia': c.metodologia,
+          'especie': c.especie,
+          'nome_popular': c.nomePopular,
+          'quantidade': c.quantidade,
+          'foto': fotoBase64, // ✅ imagem convertida
+          'observacoes': c.observacoes,
+          'data_criacao': c.dataCriacao.toIso8601String(),
+          'data_atualizacao': c.dataAtualizacao.toIso8601String(),
+        };
       }).toList();
+
+      final payload = {
+        'ponto_coleta_id': pontoIdServidor,
+        'coletas': coletasJson,
+      };
 
       final response = await http.post(
         Uri.parse('$baseUrl/sync/coletas'),
         headers: headers,
-        body: jsonEncode(coletasJson),
+        body: jsonEncode(payload),
       );
 
       if (response.statusCode == 200) {
@@ -166,89 +244,13 @@ class ApiService {
     }
   }
 
-  // ===== SYNC COMPLETO (HIERÁRQUICO) =====
-  static Future<Map<String, dynamic>> syncCompleto({
-    required Projeto projeto,
-    required List<GrupoFauna> grupos,
-    required Map<int, List<Campanha>> campanhasPorGrupo, // grupoId → campanhas
-    required Map<int, List<PontoColeta>> pontosPorCampanha, // campanhaId → pontos
-    required Map<int, List<Coleta>> coletasPorPonto, // pontoId → coletas
-  }) async {
+  // ===== PROCESSAR DADOS =====
+  static Future<Map<String, dynamic>> processarDados(int projetoIdServidor) async {
     try {
-      // 1. Sync Projeto
-      final projetoResponse = await syncProjeto(projeto);
-      final projetoIdServidor = projetoResponse['id'];
-
-      Map<int, int> mapaGrupos = {}; // ID local → ID servidor
-      Map<int, int> mapaCampanhas = {};
-      Map<int, int> mapaPontos = {};
-
-      // 2. Sync Grupos
-      for (final grupo in grupos) {
-        final grupoResponse = await syncGrupoFauna(grupo, projetoIdServidor);
-        mapaGrupos[grupo.id!] = grupoResponse['id'];
-
-        // 3. Sync Campanhas do grupo
-        final campanhas = campanhasPorGrupo[grupo.id] ?? [];
-        for (final campanha in campanhas) {
-          final campanhaResponse = await syncCampanha(
-            campanha,
-            grupoResponse['id'],
-          );
-          mapaCampanhas[campanha.id!] = campanhaResponse['id'];
-
-          // 4. Sync Pontos da campanha
-          final pontos = pontosPorCampanha[campanha.id] ?? [];
-          if (pontos.isNotEmpty) {
-            final pontosResponse = await syncPontosColeta(
-              pontos,
-              campanhaResponse['id'],
-            );
-
-            // Mapear IDs dos pontos
-            final pontosServidor = pontosResponse['pontos'] as List;
-            for (int i = 0; i < pontos.length; i++) {
-              mapaPontos[pontos[i].id!] = pontosServidor[i]['id'];
-            }
-
-            // 5. Sync Coletas dos pontos
-            for (final ponto in pontos) {
-              final coletas = coletasPorPonto[ponto.id] ?? [];
-              if (coletas.isNotEmpty) {
-                await syncColetas(coletas, mapaPontos);
-              }
-            }
-          }
-        }
-      }
-
-      return {
-        'success': true,
-        'projeto_id': projetoIdServidor,
-        'grupos_sincronizados': mapaGrupos.length,
-        'campanhas_sincronizadas': mapaCampanhas.length,
-        'pontos_sincronizados': mapaPontos.length,
-      };
-    } catch (e) {
-      throw Exception('Erro na sincronização completa: $e');
-    }
-  }
-
-  // ===== PROCESSAR DADOS (calcular índices) =====
-  static Future<Map<String, dynamic>> processarDados({
-    required int projetoIdServidor,
-    int? grupoFaunaId,
-    int? campanhaId,
-  }) async {
-    try {
-      final queryParams = <String, String>{};
-      if (grupoFaunaId != null) queryParams['grupo_fauna_id'] = grupoFaunaId.toString();
-      if (campanhaId != null) queryParams['campanha_id'] = campanhaId.toString();
-
-      final uri = Uri.parse('$baseUrl/processar-dados/$projetoIdServidor')
-          .replace(queryParameters: queryParams);
-
-      final response = await http.post(uri, headers: headers);
+      final response = await http.post(
+        Uri.parse('$baseUrl/processar-dados/$projetoIdServidor'),
+        headers: headers,
+      );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -264,13 +266,13 @@ class ApiService {
   static Future<List<dynamic>> listarProjetos() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/flutter/projetos'),
+        Uri.parse('$baseUrl/projetos'),
         headers: headers,
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['projetos'] ?? [];
+        return data['dados'] ?? [];
       } else {
         throw Exception('Erro ao listar projetos: ${response.statusCode}');
       }
@@ -279,21 +281,7 @@ class ApiService {
     }
   }
 
-  // ===== TESTAR CONEXÃO =====
-  static Future<bool> testarConexao() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/'),
-        headers: headers,
-      ).timeout(Duration(seconds: 5));
-
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // ===== OBTER URL DO GRÁFICO =====
+  // ===== URL DE GRÁFICOS =====
   static String getGraficoUrl(String nomeArquivo) {
     return '$baseUrl/grafico/$nomeArquivo';
   }

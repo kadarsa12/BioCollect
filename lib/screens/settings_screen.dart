@@ -1,9 +1,8 @@
-// screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/excel_templates_screen.dart';
-import '../services/api_service.dart'; // <-- ajuste o caminho se necessário
+import '../services/api_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   @override
@@ -18,7 +17,34 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.all(16),
         children: [
-          // Seção: Excel e Exportação
+          // ===== CONTA E LOGIN =====
+          _buildSectionCard(
+            context,
+            'Conta e Login',
+            Icons.lock,
+            [
+              _buildSettingsTile(
+                context,
+                'Fazer Login',
+                'Conectar à API do BioCollect',
+                Icons.login,
+                    () => _abrirLoginDialog(context),
+                trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              _buildSettingsTile(
+                context,
+                'Sair',
+                'Encerrar sessão atual',
+                Icons.logout,
+                    () => _logout(context),
+                trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+            ],
+          ),
+
+          SizedBox(height: 16),
+
+          // ===== EXCEL E EXPORTAÇÃO =====
           _buildSectionCard(
             context,
             'Excel e Exportação',
@@ -32,81 +58,12 @@ class SettingsScreen extends StatelessWidget {
                     () => _openTemplatesScreen(context),
                 trailing: Icon(Icons.arrow_forward_ios, size: 16),
               ),
-              _buildSettingsTile(
-                context,
-                'Configurações de Export',
-                'Formato padrão, compressão, etc.',
-                Icons.file_download,
-                    () => _showComingSoon(context),
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-              ),
             ],
           ),
 
           SizedBox(height: 16),
 
-          // Seção: Conta e Perfil
-          _buildSectionCard(
-            context,
-            'Conta e Perfil',
-            Icons.person,
-            [
-              _buildSettingsTile(
-                context,
-                'Informações do Usuário',
-                'Nome, data de criação',
-                Icons.account_circle,
-                    () => _showUserInfo(context),
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-              ),
-              _buildSettingsTile(
-                context,
-                'Preferências',
-                'Idioma, tema, notificações',
-                Icons.tune,
-                    () => _showComingSoon(context),
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-              ),
-            ],
-          ),
-
-          SizedBox(height: 16),
-
-          // Seção: Dados e Backup
-          _buildSectionCard(
-            context,
-            'Dados e Backup',
-            Icons.backup,
-            [
-              _buildSettingsTile(
-                context,
-                'Backup de Dados',
-                'Exportar todos os projetos',
-                Icons.cloud_upload,
-                    () => _showComingSoon(context),
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-              ),
-              _buildSettingsTile(
-                context,
-                'Importar Dados',
-                'Restaurar backup anterior',
-                Icons.cloud_download,
-                    () => _showComingSoon(context),
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-              ),
-              _buildSettingsTile(
-                context,
-                'Limpar Cache',
-                'Liberar espaço de armazenamento',
-                Icons.cleaning_services,
-                    () => _showClearCacheDialog(context),
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-              ),
-            ],
-          ),
-
-          // ===== NOVA SEÇÃO: Sincronização (após Dados e Backup) =====
-          SizedBox(height: 16),
+          // ===== SINCRONIZAÇÃO =====
           _buildSectionCard(
             context,
             'Sincronização',
@@ -138,11 +95,10 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          // ===== FIM NOVA SEÇÃO =====
 
           SizedBox(height: 16),
 
-          // Seção: Sobre
+          // ===== SOBRE =====
           _buildSectionCard(
             context,
             'Sobre',
@@ -156,27 +112,14 @@ class SettingsScreen extends StatelessWidget {
                     () => _showAboutDialog(context),
                 trailing: Icon(Icons.arrow_forward_ios, size: 16),
               ),
-              _buildSettingsTile(
-                context,
-                'Ajuda e Suporte',
-                'Tutoriais e contato',
-                Icons.help,
-                    () => _showComingSoon(context),
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-              ),
             ],
           ),
 
           SizedBox(height: 32),
-
-          // Versão do app no final
           Center(
             child: Text(
               'BioCollect v1.0.0',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
           ),
         ],
@@ -184,6 +127,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  // ---------- Widgets base ----------
   Widget _buildSectionCard(BuildContext context, String title, IconData icon, List<Widget> children) {
     return Card(
       elevation: 2,
@@ -202,14 +146,11 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 Icon(icon, color: Color(0xFF8D6E63)),
                 SizedBox(width: 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF8D6E63),
-                  ),
-                ),
+                Text(title,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8D6E63))),
               ],
             ),
           ),
@@ -243,213 +184,46 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  // ---------- Ações ----------
   void _openTemplatesScreen(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ExcelTemplatesScreen()),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ExcelTemplatesScreen()));
   }
 
-  void _showUserInfo(BuildContext context) {
-    final user = Provider.of<UserProvider>(context, listen: false).currentUser;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.person, color: Color(0xFF8D6E63)),
-            SizedBox(width: 8),
-            Text('Informações do Usuário'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildInfoRow('Nome', user?.nome ?? 'N/A'),
-            SizedBox(height: 12),
-            _buildInfoRow(
-              'Criado em',
-              user != null
-                  ? '${user.dataCriacao.day}/${user.dataCriacao.month}/${user.dataCriacao.year}'
-                  : 'N/A',
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Fechar'),
-            style: TextButton.styleFrom(foregroundColor: Color(0xFF8D6E63)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$label: ',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF8D6E63)),
-        ),
-        Expanded(child: Text(value)),
-      ],
-    );
-  }
-
-  void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.science, color: Color(0xFF8D6E63)),
-            SizedBox(width: 8),
-            Text('Sobre o BioCollect'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Aplicativo para coleta de dados biológicos'),
-            SizedBox(height: 8),
-            Text('Versão: 1.0.0'),
-            SizedBox(height: 8),
-            Text('Desenvolvido para pesquisadores e biólogos'),
-            SizedBox(height: 16),
-            Text('Funcionalidades:', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 4),
-            Text('• Criação de projetos por grupo biológico'),
-            Text('• Coleta de dados com GPS'),
-            Text('• Exportação personalizada para Excel'),
-            Text('• Templates customizáveis'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Fechar'),
-            style: TextButton.styleFrom(foregroundColor: Color(0xFF8D6E63)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Funcionalidade em desenvolvimento 🚧'),
-        backgroundColor: Color(0xFF8D6E63),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showClearCacheDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(Icons.warning, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Limpar Cache'),
-          ],
-        ),
-        content: Text(
-          'Isso irá limpar arquivos temporários e cache do aplicativo. Seus projetos não serão afetados.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Cache limpo com sucesso!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.orange),
-            child: Text('Limpar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =======================
-  // NOVOS MÉTODOS
-  // =======================
   Future<void> _testarConexao(BuildContext context) async {
-    // Loading
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (_) => AlertDialog(
         content: Row(
-          children: const [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('Testando conexão...'),
-          ],
+          children: const [CircularProgressIndicator(), SizedBox(width: 16), Text('Testando conexão...')],
         ),
       ),
     );
 
     try {
       final conectado = await ApiService.testarConexao();
-      Navigator.pop(context); // fecha loading
+      Navigator.pop(context);
 
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (_) => AlertDialog(
           title: Row(
             children: [
-              Icon(
-                conectado ? Icons.check_circle : Icons.error,
-                color: conectado ? Colors.green : Colors.red,
-              ),
+              Icon(conectado ? Icons.check_circle : Icons.error,
+                  color: conectado ? Colors.green : Colors.red),
               SizedBox(width: 8),
               Text(conectado ? 'Conexão OK' : 'Sem Conexão'),
             ],
           ),
           content: Text(conectado
               ? 'Servidor Python conectado com sucesso!'
-              : 'Não foi possível conectar ao servidor.\nVerifique se está rodando em 192.168.18.5:8000'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text('OK')),
-          ],
+              : 'Não foi possível conectar ao servidor.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'))],
         ),
       );
     } catch (e) {
-      Navigator.pop(context); // fecha loading
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Row(
-            children: const [
-              Icon(Icons.error, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Erro na Conexão'),
-            ],
-          ),
-          content: Text('Ocorreu um erro ao testar a conexão:\n$e'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text('Fechar')),
-          ],
-        ),
-      );
+      Navigator.pop(context);
+      _showError(context, 'Erro ao testar conexão: $e');
     }
   }
 
@@ -459,5 +233,99 @@ class SettingsScreen extends StatelessWidget {
 
   void _verResultados(BuildContext context) {
     _showComingSoon(context);
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(children: [
+          Icon(Icons.science, color: Color(0xFF8D6E63)),
+          SizedBox(width: 8),
+          Text('Sobre o BioCollect'),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Aplicativo para coleta de dados biológicos.'),
+            SizedBox(height: 8),
+            Text('Versão: 1.0.0'),
+          ],
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Fechar'))],
+      ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Funcionalidade em desenvolvimento 🚧'), backgroundColor: Color(0xFF8D6E63)),
+    );
+  }
+
+  void _showError(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
+
+  // ---------- Login / Logout ----------
+  Future<void> _abrirLoginDialog(BuildContext context) async {
+    String email = '';
+    String senha = '';
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(children: const [
+          Icon(Icons.login, color: Color(0xFF8D6E63)),
+          SizedBox(width: 8),
+          Text('Login no BioCollect'),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(decoration: InputDecoration(labelText: 'E-mail'), onChanged: (v) => email = v),
+            TextField(decoration: InputDecoration(labelText: 'Senha'), obscureText: true, onChanged: (v) => senha = v),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _realizarLogin(context, email, senha);
+            },
+            child: Text('Entrar'),
+            style: TextButton.styleFrom(foregroundColor: Color(0xFF8D6E63)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _realizarLogin(BuildContext context, String email, String senha) async {
+    try {
+      final token = await ApiService.login(email, senha);
+      if (token != null) {
+        Provider.of<UserProvider>(context, listen: false).setToken(token);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login realizado com sucesso!'), backgroundColor: Colors.green),
+        );
+      } else {
+        _showError(context, 'Falha no login. Verifique suas credenciais.');
+      }
+    } catch (e) {
+      _showError(context, 'Erro ao fazer login: $e');
+    }
+  }
+
+  void _logout(BuildContext context) {
+    Provider.of<UserProvider>(context, listen: false).logout();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sessão encerrada.'), backgroundColor: Colors.orange),
+    );
   }
 }
