@@ -10,8 +10,9 @@ import '../providers/project_provider.dart';
 import 'create_coleta_screen.dart';
 import 'edit_ponto_screen.dart';
 import 'edit_coleta_screen.dart';
-import 'dart:io';
 import '../utils/database_helper.dart';
+import 'dart:io';
+import 'coleta_rapida_screen.dart';
 
 class PontoDetailScreen extends StatefulWidget {
   final PontoColeta ponto;
@@ -19,7 +20,7 @@ class PontoDetailScreen extends StatefulWidget {
   final GrupoFauna grupoFauna;
   final Campanha campanha;
 
-  PontoDetailScreen({
+  const PontoDetailScreen({
     required this.ponto,
     required this.projeto,
     required this.grupoFauna,
@@ -27,15 +28,13 @@ class PontoDetailScreen extends StatefulWidget {
   });
 
   @override
-  _PontoDetailScreenState createState() => _PontoDetailScreenState();
+  State<PontoDetailScreen> createState() => _PontoDetailScreenState();
 }
 
 class _PontoDetailScreenState extends State<PontoDetailScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
-  // Map para agrupar coletas por metodologia
   Map<String, List<Coleta>> _coletasAgrupadas = {};
 
   Color get _grupoColor => _getColorForGrupo(widget.grupoFauna.tipo);
@@ -43,13 +42,10 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
+    _animationController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _fadeAnimation =
+        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
     _loadColetas();
     _animationController.forward();
   }
@@ -61,52 +57,42 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
   }
 
   Color _getColorForGrupo(GrupoBiologico? tipo) {
-    if (tipo == null) return Color(0xFF8D6E63);
-
     switch (tipo) {
       case GrupoBiologico.ictiofauna:
-        return Color(0xFF1976D2);
+        return const Color(0xFF1976D2);
       case GrupoBiologico.herpetofauna:
-        return Color(0xFF8D6E63);
+        return const Color(0xFF8D6E63);
       case GrupoBiologico.avifauna:
-        return Color(0xFF388E3C);
+        return const Color(0xFF388E3C);
       case GrupoBiologico.mastofauna:
-        return Color(0xFF7B1FA2);
+        return const Color(0xFF7B1FA2);
       case GrupoBiologico.entomofauna:
-        return Color(0xFFFF8F00);
+        return const Color(0xFFFF8F00);
       case GrupoBiologico.macroinvertebrados:
-        return Color(0xFF00796B);
+        return const Color(0xFF00796B);
       case GrupoBiologico.flora:
-        return Color(0xFF558B2F);
+        return const Color(0xFF558B2F);
       case GrupoBiologico.zooplancton:
-        return Color(0xFF0097A7);
+        return const Color(0xFF0097A7);
       case GrupoBiologico.fitoplancton:
-        return Color(0xFF43A047);
+        return const Color(0xFF43A047);
+      default:
+        return const Color(0xFF546E7A);
     }
   }
 
   Future<void> _loadColetas() async {
-    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-    await projectProvider.loadColetasByPonto(widget.ponto.id!);
+    final provider = Provider.of<ProjectProvider>(context, listen: false);
+    await provider.loadColetasByPonto(widget.ponto.id!);
 
-    // Agrupar coletas por metodologia
-    _agruparColetasPorMetodologia(projectProvider.coletas);
-  }
-
-  void _agruparColetasPorMetodologia(List<Coleta> coletas) {
     _coletasAgrupadas.clear();
-
-    for (final coleta in coletas) {
-      if (_coletasAgrupadas.containsKey(coleta.metodologia)) {
-        _coletasAgrupadas[coleta.metodologia]!.add(coleta);
-      } else {
-        _coletasAgrupadas[coleta.metodologia ?? ''] = [coleta];
-      }
+    for (var coleta in provider.coletas) {
+      final key = coleta.metodologia ?? "Sem metodologia";
+      _coletasAgrupadas.putIfAbsent(key, () => []).add(coleta);
     }
 
-    // Ordenar as espécies dentro de cada metodologia
-    _coletasAgrupadas.forEach((metodologia, especies) {
-      especies.sort((a, b) => (a.especie ?? '').compareTo(b.especie ?? ''));
+    _coletasAgrupadas.forEach((_, lista) {
+      lista.sort((a, b) => (a.especie ?? '').compareTo(b.especie ?? ''));
     });
 
     setState(() {});
@@ -115,145 +101,14 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF8F6F4),
-      body: CustomScrollView(
-        slivers: [
-          // AppBar moderna com gradiente (cor do grupo)
-          SliverAppBar(
-            expandedHeight: 120,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      _grupoColor,
-                      _grupoColor.withOpacity(0.8),
-                    ],
-                  ),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.1),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              title: Text(
-                widget.ponto.nome ?? 'Ponto',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              titlePadding: EdgeInsets.only(left: 16, bottom: 16),
-            ),
-            actions: [
-              PopupMenuButton<String>(
-                onSelected: (value) => _handleMenuAction(value),
-                icon: Icon(Icons.more_vert, color: Colors.white),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, color: _grupoColor, size: 20),
-                        SizedBox(width: 12),
-                        Text('Editar Ponto'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'info',
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, color: _grupoColor, size: 20),
-                        SizedBox(width: 12),
-                        Text('Informações'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          // Conteúdo principal
-          SliverToBoxAdapter(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Column(
-                children: [
-                  // Card de informações do ponto
-                  _buildPontoInfoCard(),
-
-                  // Header da lista de coletas
-                  _buildSectionHeader(),
-                ],
-              ),
-            ),
-          ),
-
-          // Lista de metodologias agrupadas
-          Consumer<ProjectProvider>(
-            builder: (context, projectProvider, child) {
-              if (projectProvider.isLoading) {
-                return SliverToBoxAdapter(
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: CircularProgressIndicator(
-                        color: _grupoColor,
-                      ),
-                    ),
-                  ),
-                );
-              }
-
-              if (_coletasAgrupadas.isEmpty) {
-                return SliverToBoxAdapter(
-                  child: _buildEmptyState(),
-                );
-              }
-
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                    final metodologia = _coletasAgrupadas.keys.elementAt(index);
-                    final coletas = _coletasAgrupadas[metodologia]!;
-
-                    return FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: _buildMetodologiaCard(metodologia, coletas),
-                      ),
-                    );
-                  },
-                  childCount: _coletasAgrupadas.length,
-                ),
-              );
-            },
-          ),
-
-          // Espaçamento para o FAB
-          SliverToBoxAdapter(
-            child: SizedBox(height: 80),
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF7F6F4),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Colors.green,
+        icon: const Icon(Icons.add),
+        label: const Text("Nova Coleta"),
         onPressed: () {
-          Navigator.of(context).push(
+          Navigator.push(
+            context,
             MaterialPageRoute(
               builder: (_) => CreateColetaScreen(
                 ponto: widget.ponto,
@@ -264,507 +119,438 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
             ),
           ).then((_) => _loadColetas());
         },
-        label: Text('Nova Coleta'),
-        icon: Icon(Icons.add),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
       ),
-    );
-  }
-
-  Widget _buildPontoInfoCard() {
-    final hasCoordinates = widget.ponto.latitude != 0.0 && widget.ponto.longitude != 0.0;
-
-    return Container(
-      margin: EdgeInsets.all(16),
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: _grupoColor.withOpacity(0.1),
-            blurRadius: 20,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
+      body: CustomScrollView(
+        slivers: [
+          // --- AppBar ---
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 150,
+            backgroundColor: _grupoColor,
+            automaticallyImplyLeading: true,
+            leading: const BackButton(color: Colors.white),
+            title: Text(
+              widget.ponto.nome ?? 'Ponto',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
                 decoration: BoxDecoration(
-                  color: _grupoColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.location_on,
-                  color: _grupoColor,
-                  size: 20,
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Informações do Ponto',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF5D4037),
+                  gradient: LinearGradient(
+                    colors: [_grupoColor, _grupoColor.withOpacity(0.8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: 20),
-
-          // Informações organizadas
-          _buildInfoSection([
-            _buildInfoItem(
-              Icons.my_location,
-              'Coordenadas',
-              hasCoordinates
-                  ? '${widget.ponto.latitude?.toStringAsFixed(6) ?? '0.0'}, ${widget.ponto.longitude?.toStringAsFixed(6) ?? '0.0'}'
-                  : 'Não informadas',
-              hasCoordinates ? _grupoColor : Colors.orange,
             ),
-            _buildInfoItem(
-              Icons.access_time,
-              'Data/Hora',
-              widget.ponto.dataHora != null
-                  ? '${widget.ponto.dataHora!.day}/${widget.ponto.dataHora!.month}/${widget.ponto.dataHora!.year} ${widget.ponto.dataHora!.hour}:${widget.ponto.dataHora!.minute.toString().padLeft(2, '0')}'
-                  : 'Data não informada',
-              _grupoColor,
-            ),
-            _buildInfoItem(
-              Icons.science,
-              'Grupo',
-              widget.grupoFauna.nomeExibicao,
-              _grupoColor,
-            ),
-            _buildInfoItem(
-              Icons.calendar_today,
-              'Campanha',
-              widget.campanha.nomeExibicao,
-              _grupoColor,
-            ),
-            if (widget.ponto.observacoes != null && widget.ponto.observacoes!.isNotEmpty)
-              _buildInfoItem(
-                Icons.note,
-                'Observações',
-                widget.ponto.observacoes!,
-                _grupoColor,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.bolt, color: Colors.white),
+                tooltip: 'Coleta Rápida',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ColetaRapidaScreen(
+                        ponto: widget.ponto,
+                        projeto: widget.projeto,
+                        grupoFauna: widget.grupoFauna,
+                        campanha: widget.campanha,
+                      ),
+                    ),
+                  ).then((_) => _loadColetas());
+                },
               ),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoSection(List<Widget> items) {
-    return Column(
-      children: items.map((item) => Padding(
-        padding: EdgeInsets.only(bottom: 12),
-        child: item,
-      )).toList(),
-    );
-  }
-
-  Widget _buildInfoItem(IconData icon, String label, String value, Color color) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: color),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF5D4037),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader() {
-    final totalMetodologias = _coletasAgrupadas.length;
-    final totalColetas = _coletasAgrupadas.values
-        .expand((coletas) => coletas)
-        .fold(0, (sum, coleta) => sum + (coleta.quantidade ?? 0));
-
-    return Container(
-      margin: EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Row(
-        children: [
-          Icon(
-            Icons.science,
-            color: _grupoColor,
-            size: 20,
-          ),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Coletas por Metodologia',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF5D4037),
-              ),
-            ),
-          ),
-          if (totalMetodologias > 0)
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _grupoColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '$totalMetodologias métodos • $totalColetas exemplares',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: _grupoColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding: EdgeInsets.all(40),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.science,
-              size: 60,
-              color: Colors.grey[400],
-            ),
-          ),
-          SizedBox(height: 20),
-          Text(
-            'Nenhuma coleta registrada',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Toque em "Nova Coleta" para registrar\na primeira coleta neste ponto',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetodologiaCard(String metodologia, List<Coleta> coletas) {
-    final totalExemplares = coletas.fold(0, (sum, coleta) => sum + (coleta.quantidade ?? 0));
-    final totalEspecies = coletas.length;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: _grupoColor.withOpacity(0.08),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header da metodologia
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_grupoColor, _grupoColor.withOpacity(0.8)],
-              ),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.science,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        metodologia,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditPontoScreen(
+                          ponto: widget.ponto,
+                          projeto: widget.projeto,
                         ),
                       ),
-                      Text(
-                        '$totalEspecies espécies • $totalExemplares exemplares',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => _adicionarNovaEspecieNaMetodologia(metodologia),
-                  icon: Icon(Icons.add, color: Colors.white),
-                  tooltip: 'Adicionar espécie',
-                ),
-              ],
-            ),
-          ),
-
-          // Lista de espécies desta metodologia
-          ...coletas.asMap().entries.map((entry) {
-            final index = entry.key;
-            final coleta = entry.value;
-            final isLast = index == coletas.length - 1;
-
-            return _buildEspecieItem(coleta, isLast);
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEspecieItem(Coleta coleta, bool isLast) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: isLast ? null : Border(
-          bottom: BorderSide(color: Colors.grey[200]!, width: 1),
-        ),
-        borderRadius: isLast ? BorderRadius.only(
-          bottomLeft: Radius.circular(16),
-          bottomRight: Radius.circular(16),
-        ) : null,
-      ),
-      child: Row(
-        children: [
-          // Foto ou avatar com quantidade
-          _buildColetaLeading(coleta),
-          SizedBox(width: 16),
-
-          // Info da espécie
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  coleta.especie ?? '',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF5D4037),
-                  ),
-                ),
-                if (coleta.nomePopular != null && coleta.nomePopular!.isNotEmpty)
-                  Text(
-                    coleta.nomePopular!,
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
+                    ).then((_) => _loadColetas());
+                  }
+                  if (value == 'info') _showPontoInfo();
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, color: _grupoColor),
+                        const SizedBox(width: 8),
+                        const Text("Editar ponto"),
+                      ],
                     ),
                   ),
-                SizedBox(height: 4),
-                Row(
+                  PopupMenuItem(
+                    value: 'info',
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: _grupoColor),
+                        const SizedBox(width: 8),
+                        const Text("Informações"),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+
+          // --- Info Card ---
+          SliverToBoxAdapter(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: _buildInfoCard(),
+              ),
+            ),
+          ),
+
+          // --- Cabeçalho de seção ---
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.science, color: _grupoColor),
+                  const SizedBox(width: 8),
+                  const Text("Coletas por Metodologia",
+                      style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+            ),
+          ),
+
+          // --- Lista ---
+          Consumer<ProjectProvider>(
+            builder: (context, provider, _) {
+              if (provider.isLoading) {
+                return const SliverToBoxAdapter(
+                  child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40),
+                        child: CircularProgressIndicator(),
+                      )),
+                );
+              }
+
+              if (_coletasAgrupadas.isEmpty) {
+                return SliverToBoxAdapter(child: _buildEmptyState());
+              }
+
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (context, i) {
+                    final metodologia = _coletasAgrupadas.keys.elementAt(i);
+                    final coletas = _coletasAgrupadas[metodologia]!;
+                    return FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: _buildMetodologiaCard(metodologia, coletas),
+                    );
+                  },
+                  childCount: _coletasAgrupadas.length,
+                ),
+              );
+            },
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
+    );
+  }
+
+  // --- Card de informações ---
+  Widget _buildInfoCard() {
+    final p = widget.ponto;
+    final c = widget.campanha;
+    final hasCoord = (p.latitude != 0.0 && p.longitude != 0.0);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: _grupoColor.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(
+          children: [
+            Icon(Icons.location_on, color: _grupoColor),
+            const SizedBox(width: 8),
+            const Text("Informações do Ponto",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _infoItem(Icons.my_location, "Coordenadas",
+            hasCoord ? "${p.latitude}, ${p.longitude}" : "Não informadas"),
+        _infoItem(Icons.access_time, "Data/Hora",
+            p.dataHora?.toString() ?? "Sem data"),
+        _infoItem(Icons.science, "Grupo", widget.grupoFauna.nomeExibicao),
+        _infoItem(Icons.calendar_today, "Campanha", c.nomeExibicao),
+        const SizedBox(height: 12),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.bolt),
+          label: const Text('Coleta Rápida'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ColetaRapidaScreen(
+                  ponto: widget.ponto,
+                  projeto: widget.projeto,
+                  grupoFauna: widget.grupoFauna,
+                  campanha: widget.campanha,
+                ),
+              ),
+            ).then((_) => _loadColetas());
+          },
+        ),
+      ]),
+    );
+  }
+
+  Widget _infoItem(IconData icon, String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(
+      children: [
+        Icon(icon, color: _grupoColor, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.black54, fontSize: 12)),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF5D4037))),
+              ]),
+        ),
+      ],
+    ),
+  );
+
+  // --- Cada metodologia ---
+  Widget _buildMetodologiaCard(String metodologia, List<Coleta> coletas) {
+    final totalExemplares =
+    coletas.fold(0, (sum, coleta) => sum + (coleta.quantidade ?? 0));
+    final totalEspecies = coletas.length;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          collapsedShape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _grupoColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.science, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.access_time, size: 12, color: Colors.grey[500]),
-                    SizedBox(width: 4),
                     Text(
-                      '${coleta.dataHora.day}/${coleta.dataHora.month}/${coleta.dataHora.year} ${coleta.dataHora.hour}:${coleta.dataHora.minute.toString().padLeft(2, '0')}',
+                      metodologia.isNotEmpty ? metodologia : "Sem metodologia",
                       style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: _grupoColor,
+                      ),
+                    ),
+                    Text(
+                      '$totalEspecies espécies · $totalExemplares exemplares',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-
-          // Botões de ação horizontais
-          Row(
-            children: [
-              _buildActionButton(
-                Icons.exposure,
-                Colors.orange,
-                'Qtd',
-                    () => _editarQuantidadeRapida(coleta),
-              ),
-              SizedBox(width: 8),
-              _buildActionButton(
-                Icons.edit,
-                Colors.blue,
-                'Edit',
-                    () => _navigateToEdit(coleta),
-              ),
-              SizedBox(width: 8),
-              _buildActionButton(
-                Icons.visibility,
-                _grupoColor,
-                'Ver',
-                    () => _showColetaDetail(coleta),
               ),
             ],
           ),
-        ],
+          trailing: IconButton(
+            icon: Icon(Icons.add_circle, color: _grupoColor),
+            tooltip: 'Adicionar espécie',
+            onPressed: () => _adicionarNovaEspecieNaMetodologia(metodologia),
+          ),
+          children: coletas.map((coleta) {
+            return Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Row(
+                children: [
+                  // --- Foto ou ícone ---
+                  if (coleta.caminhoFoto != null &&
+                      coleta.caminhoFoto!.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(coleta.caminhoFoto!),
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _grupoColor.withOpacity(0.2)),
+                      ),
+                      child: Icon(Icons.image, color: Colors.grey[400]),
+                    ),
+                  const SizedBox(width: 12),
+
+                  // --- Nome + quantidade ---
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(coleta.especie ?? '',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: Color(0xFF5D4037))),
+                        if (coleta.nomePopular != null &&
+                            coleta.nomePopular!.isNotEmpty)
+                          Text(coleta.nomePopular!,
+                              style: const TextStyle(
+                                  color: Colors.black54, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.numbers,
+                                size: 13, color: Colors.orange[700]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${coleta.quantidade ?? 0} exemplares',
+                              style: const TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // --- Botões ---
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.exposure, color: Colors.orange),
+                        tooltip: 'Alterar quantidade',
+                        onPressed: () => _editarQuantidadeRapida(coleta),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        tooltip: 'Editar espécie',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditColetaScreen(
+                                coleta: coleta,
+                                ponto: widget.ponto,
+                                projeto: widget.projeto,
+                                grupoFauna: widget.grupoFauna,
+                                campanha: widget.campanha,
+                              ),
+                            ),
+                          ).then((_) => _loadColetas());
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
-  Widget _buildActionButton(IconData icon, Color color, String tooltip, VoidCallback onPressed) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onPressed,
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 16,
-          ),
+  // --- Estado vazio ---
+  Widget _buildEmptyState() => Padding(
+    padding: const EdgeInsets.all(40),
+    child: Column(
+      children: [
+        Icon(Icons.science_outlined, size: 80, color: Colors.grey[400]),
+        const SizedBox(height: 16),
+        const Text("Nenhuma coleta registrada",
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
+        const SizedBox(height: 8),
+        Text(
+          "Toque em 'Nova Coleta' para registrar a primeira coleta neste ponto.",
+          style: TextStyle(color: Colors.grey[600]),
+          textAlign: TextAlign.center,
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 
-  Widget _buildColetaLeading(Coleta coleta) {
-    if (coleta.caminhoFoto != null && coleta.caminhoFoto!.isNotEmpty) {
-      return Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.3), width: 2),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.file(
-            File(coleta.caminhoFoto!),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[200],
-                child: Icon(Icons.broken_image, color: Colors.grey, size: 24),
-              );
-            },
-          ),
-        ),
-      );
-    } else {
-      return Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.blue,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              coleta.quantidade.toString(),
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              'QTD',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
+  // --- Auxiliares ---
   void _adicionarNovaEspecieNaMetodologia(String metodologia) {
-    Navigator.of(context).push(
+    Navigator.push(
+      context,
       MaterialPageRoute(
         builder: (_) => CreateColetaScreen(
           ponto: widget.ponto,
@@ -776,432 +562,57 @@ class _PontoDetailScreenState extends State<PontoDetailScreen>
     ).then((_) => _loadColetas());
   }
 
-  void _navigateToEdit(Coleta coleta) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EditColetaScreen(
-          coleta: coleta,
-          ponto: widget.ponto,
-          projeto: widget.projeto,
-          grupoFauna: widget.grupoFauna,
-          campanha: widget.campanha,
-        ),
-      ),
-    ).then((_) => _loadColetas());
-  }
-
-  void _handleMenuAction(String action) {
-    switch (action) {
-      case 'edit':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => EditPontoScreen(
-              ponto: widget.ponto,
-              projeto: widget.projeto,
-             // grupoFauna: widget.grupoFauna,
-             // campanha: widget.campanha,
-            ),
-          ),
-        ).then((_) => _loadColetas());
-        break;
-      case 'info':
-        _showPontoInfo();
-        break;
-    }
-  }
-
-  void _editarQuantidadeRapida(Coleta coleta) {
-    final _quantidadeController = TextEditingController(text: coleta.quantidade.toString());
-
+  void _showPontoInfo() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
-            Icon(Icons.exposure, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Alterar Quantidade'),
+            Icon(Icons.info_outline, color: _grupoColor),
+            const SizedBox(width: 8),
+            const Text("Detalhes do Ponto"),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.science, color: _grupoColor, size: 18),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          coleta.especie?? '',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF5D4037),
-                          ),
-                        ),
-                        Text(
-                          'Metodologia: ${coleta.metodologia}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16),
-            TextField(
-              controller: _quantidadeController,
-              decoration: InputDecoration(
-                labelText: 'Nova Quantidade',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.orange, width: 2),
-                ),
-                prefixIcon: Icon(Icons.numbers, color: Colors.orange),
-              ),
-              keyboardType: TextInputType.number,
-              autofocus: true,
-            ),
-          ],
+        content: Text(
+            "Nome: ${widget.ponto.nome}\nProjeto: ${widget.projeto.nome}\nGrupo: ${widget.grupoFauna.nomeExibicao}\nCampanha: ${widget.campanha.nomeExibicao}"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Fechar"))
+        ],
+      ),
+    );
+  }
+
+  void _editarQuantidadeRapida(Coleta coleta) async {
+    final controller =
+    TextEditingController(text: coleta.quantidade?.toString() ?? '');
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Alterar Quantidade'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Nova Quantidade'),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey[600],
-            ),
-          ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              final novaQuantidade = int.tryParse(_quantidadeController.text);
-              if (novaQuantidade != null && novaQuantidade > 0) {
-                await _salvarNovaQuantidade(coleta, novaQuantidade);
+              final novaQtd = int.tryParse(controller.text);
+              if (novaQtd != null && novaQtd > 0) {
+                final db = await DatabaseHelper.instance.database;
+                await db.update('coletas', {'quantidade': novaQtd},
+                    where: 'id = ?', whereArgs: [coleta.id]);
                 Navigator.pop(context);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Digite um número válido maior que 0'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                _loadColetas();
               }
             },
-            child: Text('Salvar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _salvarNovaQuantidade(Coleta coleta, int novaQuantidade) async {
-    try {
-      final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'coletas',
-        {'quantidade': novaQuantidade},
-        where: 'id = ?',
-        whereArgs: [coleta.id],
-      );
-
-      await _loadColetas();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Quantidade alterada para $novaQuantidade'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao alterar quantidade: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _showPontoInfo() {
-    showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            title: Row(
-              children: [
-                Icon(Icons.info_outline, color: _grupoColor),
-                SizedBox(width: 8),
-                Text('Detalhes do Ponto'),
-              ],
-            ),
-            content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                _buildDialogInfoRow('Nome', widget.ponto.nome ?? 'Sem nome'),
-            _buildDialogInfoRow('Projeto', widget.projeto.nome ?? ''),
-            _buildDialogInfoRow('Grupo', widget.grupoFauna.nomeExibicao),
-            _buildDialogInfoRow('Campanha', widget.campanha.nomeExibicao),
-            if (widget.ponto.latitude != 0.0 && widget.ponto.longitude != 0.0) ...[
-              _buildDialogInfoRow('Latitude', widget.ponto.latitude?.toStringAsFixed(8) ?? 'Não informada'),
-              _buildDialogInfoRow('Longitude', widget.ponto.longitude?.toStringAsFixed(8) ?? 'Não informada'),
-    ] else ...[
-              _buildDialogInfoRow('Coordenadas', 'Não informadas', isWarning: true),
-            ],
-                  if (widget.ponto.observacoes != null && widget.ponto.observacoes!.isNotEmpty)
-                    _buildDialogInfoRow('Observações', widget.ponto.observacoes!),
-                ],
-            ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Fechar'),
-              style: TextButton.styleFrom(
-                foregroundColor: _grupoColor,
-              ),
-            ),
-          ],
-        ),
-    );
-  }
-
-  Widget _buildDialogInfoRow(String label, String value, {bool isWarning = false}) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: isWarning ? Colors.orange : Color(0xFF5D4037),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showColetaDetail(Coleta coleta) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Container(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header moderno
-              Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.green, Colors.green.shade700],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.science, color: Colors.white),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Detalhes da Coleta',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _navigateToEdit(coleta);
-                      },
-                      icon: Icon(Icons.edit, color: Colors.white),
-                      tooltip: 'Editar',
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.close, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Conteúdo
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Foto (se houver)
-                      if (coleta.caminhoFoto != null && coleta.caminhoFoto!.isNotEmpty) ...[
-                        Container(
-                          width: double.infinity,
-                          height: 200,
-                          margin: EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey[300]!),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.file(
-                              File(coleta.caminhoFoto!),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        'Foto não encontrada',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      // Informações organizadas em cards
-                      _buildDetailCard('Identificação', [
-                        _buildDetailRow('Espécie', coleta.especie?? ''),
-                        if (coleta.nomePopular != null && coleta.nomePopular!.isNotEmpty)
-                          _buildDetailRow('Nome popular', coleta.nomePopular!),
-                      ]),
-
-                      SizedBox(height: 16),
-
-                      _buildDetailCard('Coleta', [
-                        _buildDetailRow('Metodologia', coleta.metodologia?? ''),
-                        _buildDetailRow('Quantidade', coleta.quantidade.toString()),
-                        _buildDetailRow(
-                          'Data/Hora',
-                          '${coleta.dataHora.day}/${coleta.dataHora.month}/${coleta.dataHora.year} ${coleta.dataHora.hour}:${coleta.dataHora.minute.toString().padLeft(2, '0')}',
-                        ),
-                      ]),
-
-                      if (coleta.observacoes != null && coleta.observacoes!.isNotEmpty) ...[
-                        SizedBox(height: 16),
-                        _buildDetailCard('Observações', [
-                          Text(
-                            coleta.observacoes!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF5D4037),
-                              height: 1.4,
-                            ),
-                          ),
-                        ]),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailCard(String title, List<Widget> children) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: _grupoColor,
-            ),
-          ),
-          SizedBox(height: 12),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-                fontSize: 13,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF5D4037),
-              ),
-            ),
+            child: const Text('Salvar'),
           ),
         ],
       ),

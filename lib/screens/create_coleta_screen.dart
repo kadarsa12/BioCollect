@@ -899,6 +899,7 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
           ),
     );
   }
+
   Future<void> _createMetodologiaRapida(String nomeMetodologia) async {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -917,9 +918,11 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
       // Criar metodologia no banco
       final novaMetodologia = Metodologia(
         nome: nomeMetodologia,
-        descricao: null, // ✅ Opcional
+        descricao: null,
+        // ✅ Opcional
         grupoBiologico: widget.grupoFauna.tipo!.code,
-        usuarioId: userId, // ✅ Nome correto
+        usuarioId: userId,
+        // ✅ Nome correto
         dataCriacao: DateTime.now(), // ✅ Adicionado
       );
 
@@ -958,6 +961,14 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
       return;
     }
 
+    if (_metodologiaSelecionada == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Selecione uma metodologia'),
+            backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) =>
@@ -968,12 +979,12 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
               children: [
                 Icon(Icons.save, color: Colors.green),
                 SizedBox(width: 8),
-                Text('Finalizar Coleta'), // Completed the title text
+                Text('Finalizar Coleta'),
               ],
             ),
             content: Text(
               'Confirma o registro de ${_especiesColetadas
-                  .length} espécies coletadas com a metodologia "${_metodologiaSelecionada}" neste ponto?',
+                  .length} espécies coletadas com a metodologia "$_metodologiaSelecionada" neste ponto?',
             ),
             actions: [
               TextButton(
@@ -981,20 +992,49 @@ class _CreateColetaScreenState extends State<CreateColetaScreen>
                 child: Text('Cancelar'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
+                onPressed: () async {
+                  Navigator.pop(context); // Fecha dialog
 
-                  // TODO: Logic to save the collections (EspecieColetada list, methodology, point, etc.)
-                  // This is where you would call your DatabaseHelper or API to persist the data.
+                  try {
+                    final db = await DatabaseHelper.instance.database;
+                    final dataHora = DateTime.now();
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(
-                        'Coletas finalizadas e salvas! (Implementação pendente)'),
-                        backgroundColor: Colors.green),
-                  );
+                    // Salvar cada espécie como uma coleta separada
+                    for (final especie in _especiesColetadas) {
+                      await db.insert('coletas', {
+                        'ponto_coleta_id': widget.ponto.id,
+                        'metodologia': _metodologiaSelecionada,
+                        'especie': especie.especie,
+                        'nome_popular': especie.nomePopular,
+                        'quantidade': especie.quantidade,
+                        'caminho_foto': especie.caminhoFoto,
+                        'data_hora': dataHora.toIso8601String(),
+                        'observacoes': especie.observacoes,
+                      });
+                    }
 
-                  // Optionally, navigate back after saving
-                  // Navigator.of(context).pop();
+                    // Recarregar coletas no provider
+                    final projectProvider = Provider.of<ProjectProvider>(
+                        context, listen: false);
+                    await projectProvider.loadColetasByPonto(widget.ponto.id!);
+
+                    // Voltar e mostrar sucesso
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${_especiesColetadas
+                            .length} coletas salvas com sucesso!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Erro ao salvar coletas: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 },
                 child: Text('Salvar Coletas'),
                 style: ElevatedButton.styleFrom(
